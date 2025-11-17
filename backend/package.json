@@ -8,7 +8,9 @@
     "dev": "nodemon src/server.js",
     "migrate": "knex migrate:latest --knexfile config/knexfile.js",
     "migrate:rollback": "knex migrate:rollback --knexfile config/knexfile.js",
-    "seed": "knex seed:run --knexfile config/knexfile.js"
+    "seed": "knex seed:run --knexfile config/knexfile.js",
+    "test": "jest --coverage --verbose",
+    "test:watch": "jest --watch"
   },
   "keywords": [
     "ediscovery",
@@ -32,6 +34,19 @@
     "pg": "^8.11.3"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.1",
+    "supertest": "^6.3.4"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "coverageDirectory": "coverage",
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/server.js"
+    ],
+    "testMatch": [
+      "**/__tests__/**/*.test.js"
+    ]
   }
 }
