@@ -5,6 +5,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 const knexConfig = require('../config/knexfile')[process.env.NODE_ENV || 'development'];
 const Knex = require('knex');
 const bodyParser = require('body-parser');
@@ -44,16 +45,74 @@ app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
 app.use(bodyParser.json());
 app.use((req, res, next) => { req.knex = knex; next(); });
 
-app.use('/api/auth', authRoutes);
-app.use('/api/cases', caseRoutes);
-app.use('/api/documents', docRoutes);
-app.use('/api/audit', auditRoutes);
-app.use('/api/tags', tagRoutes);
-app.use('/api/export', exportRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/retention', retentionRoutes);
-app.use('/api/privacy', privacyRoutes);
+// Rate limiting configurations
+// Strict rate limit for authentication endpoints to prevent brute force attacks
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 requests per window
+  message: {
+    error: 'Too many login attempts from this IP, please try again after 15 minutes',
+    retryAfter: '15 minutes'
+  },
+  standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
+  legacyHeaders: false, // Disable `X-RateLimit-*` headers
+  // Skip successful logins from counting (only count failed attempts)
+  skipSuccessfulRequests: true,
+  // Custom key generator to use IP address (handles IPv4 and IPv6)
+  keyGenerator: (req) => {
+    // Normalize IPv6-mapped IPv4 addresses
+    const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    return ip.replace(/^::ffff:/, '');
+  }
+});
+
+// Moderate rate limit for general API endpoints
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per window per IP
+  message: {
+    error: 'Too many requests from this IP, please try again later',
+    retryAfter: '15 minutes'
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Stricter rate limit for document upload endpoints (resource intensive)
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 50, // 50 uploads per hour
+  message: {
+    error: 'Upload limit exceeded, please try again later',
+    retryAfter: '1 hour'
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Very strict rate limit for data export endpoints (resource intensive)
+const exportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // 10 exports per hour
+  message: {
+    error: 'Export limit exceeded, please try again later',
+    retryAfter: '1 hour'
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Apply rate limiters to routes
+app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/cases', apiLimiter, caseRoutes);
+app.use('/api/documents', apiLimiter, docRoutes);
+app.use('/api/audit', apiLimiter, auditRoutes);
+app.use('/api/tags', apiLimiter, tagRoutes);
+app.use('/api/export', exportLimiter, exportRoutes);
+app.use('/api/users', apiLimiter, userRoutes);
+app.use('/api/notifications', apiLimiter, notificationRoutes);
+app.use('/api/retention', apiLimiter, retentionRoutes);
+app.use('/api/privacy', apiLimiter, privacyRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 
