@@ -32,6 +32,9 @@ const { startBackupScheduler } = require('./jobs/backupScheduler');
 
 const app = express();
 
+// Disable X-Powered-By header to prevent server fingerprinting
+app.disable('x-powered-by');
+
 // Security headers with Helmet
 app.use(helmet({
   contentSecurityPolicy: {

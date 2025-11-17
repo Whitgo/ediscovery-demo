@@ -234,7 +234,20 @@ router.get('/case/:caseId/documents/:docId/download', auth, async (req, res) => 
 
     // Serve stored file
     if (doc.stored_filename) {
-      const filePath = path.join(__dirname, '../../uploads', doc.stored_filename);
+      // Validate filename to prevent path traversal
+      const sanitizedFilename = path.basename(doc.stored_filename);
+      if (sanitizedFilename !== doc.stored_filename || sanitizedFilename.includes('..')) {
+        return res.status(400).json({ error: 'Invalid filename' });
+      }
+      
+      const uploadsDir = path.resolve(__dirname, '../../uploads');
+      const filePath = path.join(uploadsDir, sanitizedFilename);
+      const normalizedPath = path.resolve(filePath);
+      
+      // Ensure file is within uploads directory
+      if (!normalizedPath.startsWith(uploadsDir)) {
+        return res.status(400).json({ error: 'Invalid file path' });
+      }
       
       if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'File not found on server' });

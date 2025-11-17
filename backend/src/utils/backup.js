@@ -218,11 +218,28 @@ async function performBackup() {
     throw new Error('Database environment variables required: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD');
   }
   
+  // Validate inputs to prevent command injection
+  const sanitizeShellArg = (arg) => {
+    if (typeof arg !== 'string') return '';
+    // Remove any characters that could be used for command injection
+    return arg.replace(/[^a-zA-Z0-9._-]/g, '');
+  };
+  
+  const safeHost = sanitizeShellArg(dbHost);
+  const safePort = sanitizeShellArg(dbPort);
+  const safeUser = sanitizeShellArg(dbUser);
+  const safeName = sanitizeShellArg(dbName);
+  
+  // Validate port is numeric
+  if (!/^\d+$/.test(safePort)) {
+    throw new Error('Invalid database port');
+  }
+  
   console.log(`🔄 Starting backup: ${path.basename(backupFile)}`);
   
   try {
-    // Use pg_dump to create backup
-    const command = `PGPASSWORD="${dbPassword}" pg_dump -h ${dbHost} -p ${dbPort} -U ${dbUser} -d ${dbName} -F p -f "${backupFile}"`;
+    // Use pg_dump to create backup with sanitized inputs
+    const command = `PGPASSWORD="${dbPassword}" pg_dump -h ${safeHost} -p ${safePort} -U ${safeUser} -d ${safeName} -F p -f "${backupFile}"`;
     
     const { stdout, stderr } = await execPromise(command);
     
@@ -350,6 +367,15 @@ async function restoreBackup(backupFile = null) {
       backupFile = backups[0].filepath;
     }
     
+    // Validate backup file path to prevent directory traversal
+    const normalizedPath = path.normalize(backupFile);
+    const backupDir = path.resolve(BACKUP_DIR);
+    const resolvedPath = path.resolve(normalizedPath);
+    
+    if (!resolvedPath.startsWith(backupDir)) {
+      throw new Error('Invalid backup file path - directory traversal detected');
+    }
+    
     // Verify backup file exists
     await fs.access(backupFile);
     
@@ -375,18 +401,33 @@ async function restoreBackup(backupFile = null) {
       throw new Error('Database environment variables required: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD');
     }
     
+    // Validate and sanitize inputs to prevent command injection
+    const sanitizeShellArg = (arg) => {
+      if (typeof arg !== 'string') return '';
+      return arg.replace(/[^a-zA-Z0-9._-]/g, '');
+    };
+    
+    const safeHost = sanitizeShellArg(dbHost);
+    const safePort = sanitizeShellArg(dbPort);
+    const safeUser = sanitizeShellArg(dbUser);
+    const safeName = sanitizeShellArg(dbName);
+    
+    if (!/^\d+$/.test(safePort)) {
+      throw new Error('Invalid database port');
+    }
+    
     // Drop and recreate database (for clean restore)
     console.log('⚠️  Dropping existing database...');
-    const dropCommand = `PGPASSWORD="${dbPassword}" psql -h ${dbHost} -p ${dbPort} -U ${dbUser} -d postgres -c "DROP DATABASE IF EXISTS ${dbName};"`;
+    const dropCommand = `PGPASSWORD="${dbPassword}" psql -h ${safeHost} -p ${safePort} -U ${safeUser} -d postgres -c "DROP DATABASE IF EXISTS ${safeName};"`;
     await execPromise(dropCommand);
     
     console.log('🔄 Creating fresh database...');
-    const createCommand = `PGPASSWORD="${dbPassword}" psql -h ${dbHost} -p ${dbPort} -U ${dbUser} -d postgres -c "CREATE DATABASE ${dbName};"`;
+    const createCommand = `PGPASSWORD="${dbPassword}" psql -h ${safeHost} -p ${safePort} -U ${safeUser} -d postgres -c "CREATE DATABASE ${safeName};"`;
     await execPromise(createCommand);
     
     // Restore from backup
     console.log('📥 Restoring data from backup...');
-    const restoreCommand = `PGPASSWORD="${dbPassword}" psql -h ${dbHost} -p ${dbPort} -U ${dbUser} -d ${dbName} -f "${actualBackupFile}"`;
+    const restoreCommand = `PGPASSWORD="${dbPassword}" psql -h ${safeHost} -p ${safePort} -U ${safeUser} -d ${safeName} -f "${actualBackupFile}"`;
     const { stdout, stderr } = await execPromise(restoreCommand);
     
     if (stderr && !stderr.includes('WARNING') && !stderr.includes('NOTICE')) {
