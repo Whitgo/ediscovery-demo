@@ -43,7 +43,38 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
+// CORS Configuration - Tightened for security
+const allowedOrigins = process.env.CORS_ORIGIN 
+  ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
+  : ['http://localhost:3000']; // Default for development
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, curl, Postman)
+    // In production, you may want to restrict this
+    if (!origin && process.env.NODE_ENV === 'development') {
+      return callback(null, true);
+    }
+    
+    if (!origin) {
+      return callback(new Error('Not allowed by CORS - missing origin'), false);
+    }
+    
+    // Check if origin is in whitelist
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`Not allowed by CORS - origin ${origin} not in whitelist`), false);
+    }
+  },
+  credentials: true, // Allow cookies and authorization headers
+  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'], // Explicit allowed methods
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'], // Explicit allowed headers
+  exposedHeaders: ['X-Total-Count', 'X-RateLimit-Limit', 'X-RateLimit-Remaining'], // Headers exposed to client
+  maxAge: 600 // Cache preflight requests for 10 minutes
+};
+
+app.use(cors(corsOptions));
 app.use(bodyParser.json());
 
 // Input sanitization middleware - applies to all routes
