@@ -12,6 +12,8 @@ const bodyParser = require('body-parser');
 
 const knex = Knex(knexConfig);
 
+const { sanitizeInput } = require('./middleware/validate');
+
 const authRoutes = require('./api/auth');
 const caseRoutes = require('./api/cases');
 const docRoutes = require('./api/documents');
@@ -43,6 +45,10 @@ app.use((req, res, next) => {
 
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
 app.use(bodyParser.json());
+
+// Input sanitization middleware - applies to all routes
+app.use(sanitizeInput);
+
 app.use((req, res, next) => { req.knex = knex; next(); });
 
 // Rate limiting configurations

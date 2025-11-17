@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const { validationRules } = require('../middleware/validate');
 
 // Helper to log failed login attempts
 async function logFailedLogin(knex, email, ip, userAgent) {
@@ -22,7 +23,7 @@ async function logFailedLogin(knex, email, ip, userAgent) {
   }
 }
 
-router.post('/login', async (req, res) => {
+router.post('/login', validationRules.login, async (req, res) => {
   const knex = req.knex;
   const { email, password } = req.body;
   const ip = req.ip || req.connection.remoteAddress;

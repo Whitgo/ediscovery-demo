@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const auth = require('../middleware/auth');
+const { validationRules } = require('../middleware/validate');
 
 // Get all users (managers only)
 router.get('/', auth, async (req, res) => {
@@ -21,7 +22,7 @@ router.get('/', auth, async (req, res) => {
 });
 
 // Get single user (managers only)
-router.get('/:id', auth, async (req, res) => {
+router.get('/:id', auth, validationRules.validateId, async (req, res) => {
   if (req.user.role !== 'manager') {
     return res.status(403).json({ error: 'Access denied. Managers only.' });
   }
@@ -44,7 +45,7 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 // Create new user (managers only)
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, validationRules.createUser, async (req, res) => {
   if (req.user.role !== 'manager') {
     return res.status(403).json({ error: 'Access denied. Managers only.' });
   }
@@ -108,7 +109,7 @@ router.post('/', auth, async (req, res) => {
 });
 
 // Update user (managers only)
-router.patch('/:id', auth, async (req, res) => {
+router.patch('/:id', auth, validationRules.updateUser, async (req, res) => {
   if (req.user.role !== 'manager') {
     return res.status(403).json({ error: 'Access denied. Managers only.' });
   }
@@ -178,7 +179,7 @@ router.patch('/:id', auth, async (req, res) => {
 });
 
 // Delete user (managers only)
-router.delete('/:id', auth, async (req, res) => {
+router.delete('/:id', auth, validationRules.validateId, async (req, res) => {
   if (req.user.role !== 'manager') {
     return res.status(403).json({ error: 'Access denied. Managers only.' });
   }

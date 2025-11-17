@@ -6,6 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
+const { validationRules } = require('../middleware/validate');
 const {
   RETENTION_POLICIES,
   getExpiredCases,
@@ -84,7 +85,7 @@ router.get('/cases/expired', auth, async (req, res) => {
 });
 
 // Update case retention policy (managers only)
-router.patch('/cases/:caseId/policy', auth, async (req, res) => {
+router.patch('/cases/:caseId/policy', auth, validationRules.updateRetentionPolicy, async (req, res) => {
   if (req.user.role !== 'manager') {
     return res.status(403).json({ error: 'Access denied. Managers only.' });
   }
@@ -121,7 +122,7 @@ router.patch('/cases/:caseId/policy', auth, async (req, res) => {
 });
 
 // Set or remove legal hold (managers only)
-router.patch('/cases/:caseId/legal-hold', auth, async (req, res) => {
+router.patch('/cases/:caseId/legal-hold', auth, validationRules.updateLegalHold, async (req, res) => {
   if (req.user.role !== 'manager') {
     return res.status(403).json({ error: 'Access denied. Managers only.' });
   }
@@ -157,7 +158,7 @@ router.patch('/cases/:caseId/legal-hold', auth, async (req, res) => {
 });
 
 // Manually delete a specific case (managers only)
-router.delete('/cases/:caseId', auth, async (req, res) => {
+router.delete('/cases/:caseId', auth, validationRules.validateCaseId, async (req, res) => {
   if (req.user.role !== 'manager') {
     return res.status(403).json({ error: 'Access denied. Managers only.' });
   }
