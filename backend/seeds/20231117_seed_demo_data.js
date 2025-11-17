@@ -7,27 +7,34 @@ exports.seed = async function(knex) {
   await knex('users').insert([
     {
       id: 1,
+      name: "Admin User",
+      email: "admin@demo.com",
+      role: "admin",
+      password_hash: "$2b$10$CwTycUXWue0Thq9StjUM0uJ8PCZUMga1pH4IY/eYPp1fT0TRdc5aO", // demo123
+    },
+    {
+      id: 2,
       name: "Alice Manager",
       email: "alice@demo.com",
       role: "manager",
       password_hash: "$2b$10$CwTycUXWue0Thq9StjUM0uJ8PCZUMga1pH4IY/eYPp1fT0TRdc5aO", // demo123
     },
     {
-      id: 2,
+      id: 3,
       name: "Bob User",
       email: "bob@demo.com",
       role: "user",
       password_hash: "$2b$10$CwTycUXWue0Thq9StjUM0uJ8PCZUMga1pH4IY/eYPp1fT0TRdc5aO",
     },
     {
-      id: 3,
+      id: 4,
       name: "Sandra Support",
       email: "sandra@demo.com",
       role: "support",
       password_hash: "$2b$10$CwTycUXWue0Thq9StjUM0uJ8PCZUMga1pH4IY/eYPp1fT0TRdc5aO",
     },
     {
-      id: 4,
+      id: 5,
       name: "Victor Viewer",
       email: "victor@demo.com",
       role: "viewer",

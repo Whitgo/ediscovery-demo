@@ -1,15 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
+const { requireRole } = require('../middleware/rbac');
 
-// Get user's notifications
-router.get('/', auth, async (req, res) => {
+// Get user's notifications (users and managers only)
+router.get('/', auth, requireRole('admin', 'manager', 'user'), async (req, res) => {
   const knex = req.knex;
-  
-  // Only users and managers can access notifications
-  if (!['user', 'manager'].includes(req.user.role)) {
-    return res.status(403).json({ error: 'Access denied' });
-  }
 
   try {
     const notifications = await knex('notifications')
@@ -23,13 +19,9 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// Get unread count
-router.get('/unread/count', auth, async (req, res) => {
+// Get unread count (users and managers only)
+router.get('/unread/count', auth, requireRole('admin', 'manager', 'user'), async (req, res) => {
   const knex = req.knex;
-  
-  if (!['user', 'manager'].includes(req.user.role)) {
-    return res.status(403).json({ error: 'Access denied' });
-  }
 
   try {
     const result = await knex('notifications')
@@ -43,13 +35,9 @@ router.get('/unread/count', auth, async (req, res) => {
   }
 });
 
-// Mark notification as read
-router.patch('/:id/read', auth, async (req, res) => {
+// Mark notification as read (users and managers only)
+router.patch('/:id/read', auth, requireRole('admin', 'manager', 'user'), async (req, res) => {
   const knex = req.knex;
-  
-  if (!['user', 'manager'].includes(req.user.role)) {
-    return res.status(403).json({ error: 'Access denied' });
-  }
 
   try {
     const notification = await knex('notifications')
@@ -70,13 +58,9 @@ router.patch('/:id/read', auth, async (req, res) => {
   }
 });
 
-// Mark all notifications as read
-router.patch('/read-all', auth, async (req, res) => {
+// Mark all notifications as read (users and managers only)
+router.patch('/read-all', auth, requireRole('admin', 'manager', 'user'), async (req, res) => {
   const knex = req.knex;
-  
-  if (!['user', 'manager'].includes(req.user.role)) {
-    return res.status(403).json({ error: 'Access denied' });
-  }
 
   try {
     await knex('notifications')
@@ -89,13 +73,9 @@ router.patch('/read-all', auth, async (req, res) => {
   }
 });
 
-// Get user's notification preferences
-router.get('/preferences', auth, async (req, res) => {
+// Get user's notification preferences (users and managers only)
+router.get('/preferences', auth, requireRole('admin', 'manager', 'user'), async (req, res) => {
   const knex = req.knex;
-  
-  if (!['user', 'manager'].includes(req.user.role)) {
-    return res.status(403).json({ error: 'Access denied' });
-  }
 
   try {
     let prefs = await knex('notification_preferences')
@@ -125,13 +105,9 @@ router.get('/preferences', auth, async (req, res) => {
   }
 });
 
-// Update user's notification preferences
-router.patch('/preferences', auth, async (req, res) => {
+// Update user's notification preferences (users and managers only)
+router.patch('/preferences', auth, requireRole('admin', 'manager', 'user'), async (req, res) => {
   const knex = req.knex;
-  
-  if (!['user', 'manager'].includes(req.user.role)) {
-    return res.status(403).json({ error: 'Access denied' });
-  }
 
   const { document_uploads_enabled, exports_enabled, case_updates_enabled, only_assigned_cases } = req.body;
 
@@ -171,13 +147,9 @@ router.patch('/preferences', auth, async (req, res) => {
   }
 });
 
-// Delete notification
-router.delete('/:id', auth, async (req, res) => {
+// Delete a notification (users and managers only)
+router.delete('/:id', auth, requireRole('admin', 'manager', 'user'), async (req, res) => {
   const knex = req.knex;
-  
-  if (!['user', 'manager'].includes(req.user.role)) {
-    return res.status(403).json({ error: 'Access denied' });
-  }
 
   try {
     const notification = await knex('notifications')

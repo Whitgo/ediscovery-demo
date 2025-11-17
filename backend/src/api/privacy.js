@@ -6,6 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
+const { requireRole } = require('../middleware/rbac');
 
 // GDPR Art. 15 / CCPA § 1798.110 - Right to Access
 // Export all user data in machine-readable format
@@ -274,12 +275,8 @@ router.post('/consent/privacy-policy', auth, async (req, res) => {
 
 // --- ADMIN/MANAGER ENDPOINTS ---
 
-// Get all data subject requests (managers only)
-router.get('/admin/requests', auth, async (req, res) => {
-  if (req.user.role !== 'manager') {
-    return res.status(403).json({ error: 'Access denied. Managers only.' });
-  }
-
+// Get all data subject requests (admins and managers only)
+router.get('/admin/requests', auth, requireRole('admin', 'manager'), async (req, res) => {
   const knex = req.knex;
   const { status, type } = req.query;
 
@@ -313,12 +310,8 @@ router.get('/admin/requests', auth, async (req, res) => {
   }
 });
 
-// Process data subject request (approve/reject)
-router.patch('/admin/requests/:requestId', auth, async (req, res) => {
-  if (req.user.role !== 'manager') {
-    return res.status(403).json({ error: 'Access denied. Managers only.' });
-  }
-
+// Process data subject request (approve/reject) (admins and managers only)
+router.patch('/admin/requests/:requestId', auth, requireRole('admin', 'manager'), async (req, res) => {
   const knex = req.knex;
   const { requestId } = req.params;
   const { status, admin_notes } = req.body;
@@ -374,12 +367,8 @@ router.patch('/admin/requests/:requestId', auth, async (req, res) => {
   }
 });
 
-// Execute approved deletion request (managers only)
-router.delete('/admin/requests/:requestId/execute', auth, async (req, res) => {
-  if (req.user.role !== 'manager') {
-    return res.status(403).json({ error: 'Access denied. Managers only.' });
-  }
-
+// Execute approved deletion request (admins only - most sensitive operation)
+router.delete('/admin/requests/:requestId/execute', auth, requireRole('admin', 'manager'), async (req, res) => {
   const knex = req.knex;
   const { requestId } = req.params;
 

@@ -1,0 +1,28 @@
+{
+  "fuse.js": {
+    "wanted": "7.1.0",
+    "latest": "7.1.0",
+    "dependent": "frontend"
+  },
+  "react": {
+    "current": "18.3.1",
+    "wanted": "18.3.1",
+    "latest": "19.2.0",
+    "dependent": "frontend",
+    "location": "/workspaces/ediscovery-demo/frontend/node_modules/react"
+  },
+  "react-dom": {
+    "current": "18.3.1",
+    "wanted": "18.3.1",
+    "latest": "19.2.0",
+    "dependent": "frontend",
+    "location": "/workspaces/ediscovery-demo/frontend/node_modules/react-dom"
+  },
+  "react-router-dom": {
+    "current": "6.30.2",
+    "wanted": "6.30.2",
+    "latest": "7.9.6",
+    "dependent": "frontend",
+    "location": "/workspaces/ediscovery-demo/frontend/node_modules/react-router-dom"
+  }
+}

@@ -1,0 +1,8 @@
+# Trivy Ignore File
+# Add CVEs to ignore here with justification
+
+# Example:
+# CVE-2024-1234
+# Reason: False positive, not applicable to our use case
+# Date: 2024-11-17
+# Review by: 2025-01-17

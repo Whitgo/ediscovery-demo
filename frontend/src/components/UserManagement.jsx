@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { apiGet, apiPost, apiPatch, apiDelete } from "../utils/api";
+import { getAllRoles } from "../utils/rbac";
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
@@ -15,12 +16,7 @@ export default function UserManagement() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const roles = [
-    { value: "manager", label: "Manager", description: "Full access to all features" },
-    { value: "user", label: "User", description: "Can manage cases and documents" },
-    { value: "support", label: "Support", description: "Can view and assist with cases" },
-    { value: "viewer", label: "Viewer", description: "Read-only access" }
-  ];
+  const roles = getAllRoles();
 
   useEffect(() => {
     loadUsers();

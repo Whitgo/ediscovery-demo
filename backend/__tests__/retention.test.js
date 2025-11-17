@@ -6,6 +6,10 @@
 const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
+
+// Mock the auth middleware before importing routes
+jest.mock('../src/middleware/auth', () => (req, res, next) => next());
+
 const retentionRouter = require('../src/api/retention');
 
 // Mock the data retention utilities
@@ -44,6 +48,23 @@ function setupApp() {
   app.use((req, res, next) => {
     req.knex = mockKnex;
     next();
+  });
+  
+  // Mock authentication middleware
+  app.use((req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+    
+    const token = authHeader.split(' ')[1];
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'test-secret');
+      req.user = decoded;
+      next();
+    } catch (err) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
   });
   
   app.use('/api/retention', retentionRouter);
@@ -145,9 +166,9 @@ describe('Data Retention API', () => {
   });
   
   // ============================================================================
-  // GET /api/retention/cases/approaching - Get cases approaching retention
+  // GET /api/retention/approaching - Get cases approaching retention
   // ============================================================================
-  describe('GET /api/retention/cases/approaching', () => {
+  describe('GET /api/retention/approaching', () => {
     test('Normal: Manager should get cases approaching retention with default 90 days', async () => {
       const mockCases = [
         { id: 1, case_name: 'Case 1', retention_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
@@ -158,7 +179,7 @@ describe('Data Retention API', () => {
       const token = generateToken(managerUser);
       
       const response = await request(app)
-        .get('/api/retention/cases/approaching')
+        .get('/api/retention/approaching')
         .set('Authorization', `Bearer ${token}`);
       
       expect(response.status).toBe(200);
@@ -173,7 +194,7 @@ describe('Data Retention API', () => {
       const token = generateToken(managerUser);
       
       const response = await request(app)
-        .get('/api/retention/cases/approaching?days=30')
+        .get('/api/retention/approaching?days=30')
         .set('Authorization', `Bearer ${token}`);
       
       expect(response.status).toBe(200);
@@ -185,7 +206,7 @@ describe('Data Retention API', () => {
       const token = generateToken(managerUser);
       
       const response = await request(app)
-        .get('/api/retention/cases/approaching')
+        .get('/api/retention/approaching')
         .set('Authorization', `Bearer ${token}`);
       
       expect(response.status).toBe(200);
@@ -198,7 +219,7 @@ describe('Data Retention API', () => {
       const token = generateToken(managerUser);
       
       const response = await request(app)
-        .get('/api/retention/cases/approaching?days=invalid')
+        .get('/api/retention/approaching?days=invalid')
         .set('Authorization', `Bearer ${token}`);
       
       expect(response.status).toBe(200);
@@ -209,7 +230,7 @@ describe('Data Retention API', () => {
       const token = generateToken(regularUser);
       
       const response = await request(app)
-        .get('/api/retention/cases/approaching')
+        .get('/api/retention/approaching')
         .set('Authorization', `Bearer ${token}`);
       
       expect(response.status).toBe(403);
@@ -221,7 +242,7 @@ describe('Data Retention API', () => {
       const token = generateToken(managerUser);
       
       const response = await request(app)
-        .get('/api/retention/cases/approaching')
+        .get('/api/retention/approaching')
         .set('Authorization', `Bearer ${token}`);
       
       expect(response.status).toBe(500);
@@ -230,9 +251,9 @@ describe('Data Retention API', () => {
   });
   
   // ============================================================================
-  // GET /api/retention/cases/expired - Get expired cases
+  // GET /api/retention/expired - Get expired cases
   // ============================================================================
-  describe('GET /api/retention/cases/expired', () => {
+  describe('GET /api/retention/expired', () => {
     test('Normal: Manager should get list of expired cases', async () => {
       const mockExpired = [
         { id: 1, case_name: 'Expired Case 1', retention_date: '2020-01-01T00:00:00.000Z' },
@@ -243,7 +264,7 @@ describe('Data Retention API', () => {
       const token = generateToken(managerUser);
       
       const response = await request(app)
-        .get('/api/retention/cases/expired')
+        .get('/api/retention/expired')
         .set('Authorization', `Bearer ${token}`);
       
       expect(response.status).toBe(200);
@@ -257,7 +278,7 @@ describe('Data Retention API', () => {
       const token = generateToken(managerUser);
       
       const response = await request(app)
-        .get('/api/retention/cases/expired')
+        .get('/api/retention/expired')
         .set('Authorization', `Bearer ${token}`);
       
       expect(response.status).toBe(200);
@@ -268,7 +289,7 @@ describe('Data Retention API', () => {
       const token = generateToken(regularUser);
       
       const response = await request(app)
-        .get('/api/retention/cases/expired')
+        .get('/api/retention/expired')
         .set('Authorization', `Bearer ${token}`);
       
       expect(response.status).toBe(403);
@@ -296,13 +317,14 @@ describe('Data Retention API', () => {
       
       expect(response.status).toBe(200);
       expect(response.body.message).toBe('Retention policy updated');
-      expect(response.body.case_id).toBe('123');
+      expect(response.body.case_id).toBe(123);
       expect(response.body.retention_policy).toBe('7_years');
-      expect(updateCaseRetentionPolicy).toHaveBeenCalledWith(mockKnex, '123', '7_years', undefined);
+      expect(updateCaseRetentionPolicy).toHaveBeenCalledWith(mockKnex, 123, '7_years', undefined);
     });
     
     test('Normal: Manager should update to custom policy with custom date', async () => {
       const customDate = '2028-12-31';
+      const customDateAsDate = new Date('2028-12-31T00:00:00.000Z');
       const mockResult = {
         retention_policy: 'custom',
         retention_date: customDate
@@ -318,7 +340,7 @@ describe('Data Retention API', () => {
         .send({ policy: 'custom', custom_date: customDate });
       
       expect(response.status).toBe(200);
-      expect(updateCaseRetentionPolicy).toHaveBeenCalledWith(mockKnex, '456', 'custom', customDate);
+      expect(updateCaseRetentionPolicy).toHaveBeenCalledWith(mockKnex, 456, 'custom', customDateAsDate);
     });
     
     test('Error: Should reject request without policy', async () => {
@@ -345,16 +367,16 @@ describe('Data Retention API', () => {
     });
     
     test('Error: Should handle database errors', async () => {
-      updateCaseRetentionPolicy.mockRejectedValue(new Error('Invalid policy'));
+      updateCaseRetentionPolicy.mockRejectedValue(new Error('Database connection failed'));
       const token = generateToken(managerUser);
       
       const response = await request(app)
         .patch('/api/retention/cases/123/policy')
         .set('Authorization', `Bearer ${token}`)
-        .send({ policy: 'invalid_policy' });
+        .send({ policy: '7_years' }); // Use valid policy to bypass validation
       
       expect(response.status).toBe(500);
-      expect(response.body.error).toBe('Invalid policy');
+      expect(response.body.error).toBe('Database connection failed');
     });
   });
   
@@ -376,7 +398,7 @@ describe('Data Retention API', () => {
       
       expect(response.status).toBe(200);
       expect(response.body.message).toBe('Legal hold activated');
-      expect(setLegalHold).toHaveBeenCalledWith(mockKnex, '789', true);
+      expect(setLegalHold).toHaveBeenCalledWith(mockKnex, 789, true);
     });
     
     test('Normal: Manager should remove legal hold', async () => {
@@ -401,10 +423,10 @@ describe('Data Retention API', () => {
       const response = await request(app)
         .patch('/api/retention/cases/789/legal-hold')
         .set('Authorization', `Bearer ${token}`)
-        .send({ legal_hold: 'yes' });
+        .send({ legal_hold: 'yes' }); // String instead of boolean
       
       expect(response.status).toBe(400);
-      expect(response.body.error).toBe('legal_hold must be a boolean');
+      expect(response.body.error).toContain('Validation failed'); // Validation middleware error
     });
     
     test('Error: Should reject missing legal_hold field', async () => {
@@ -456,7 +478,7 @@ describe('Data Retention API', () => {
       expect(response.status).toBe(200);
       expect(response.body.message).toContain('deleted successfully');
       expect(response.body.documents_deleted).toBe(5);
-      expect(deleteCaseData).toHaveBeenCalledWith(mockKnex, '101', 'manual_admin', 'Manager');
+      expect(deleteCaseData).toHaveBeenCalledWith(mockKnex, 101, 'manual_admin', 'Manager');
     });
     
     test('Error: Should prevent deletion of case on legal hold', async () => {

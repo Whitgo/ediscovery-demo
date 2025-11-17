@@ -6,6 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
+const { requireRole } = require('../middleware/rbac');
 const { validationRules } = require('../middleware/validate');
 const {
   RETENTION_POLICIES,
@@ -33,17 +34,13 @@ router.get('/policies', auth, async (req, res) => {
   });
 });
 
-// Get cases approaching retention deadline (managers only)
-router.get('/cases/approaching', auth, async (req, res) => {
-  if (req.user.role !== 'manager') {
-    return res.status(403).json({ error: 'Access denied. Managers only.' });
-  }
-
+// Get cases approaching retention deadline (admins and managers only)
+router.get('/approaching', auth, requireRole('admin', 'manager'), async (req, res) => {
   const knex = req.knex;
-  const daysThreshold = parseInt(req.query.days) || 90;
+  const days = parseInt(req.query.days) || 90;
 
   try {
-    const cases = await getCasesApproachingRetention(knex, daysThreshold);
+    const cases = await getCasesApproachingRetention(knex, days);
     
     // Calculate days remaining for each case
     const now = new Date();
@@ -65,12 +62,8 @@ router.get('/cases/approaching', auth, async (req, res) => {
   }
 });
 
-// Get expired cases (managers only)
-router.get('/cases/expired', auth, async (req, res) => {
-  if (req.user.role !== 'manager') {
-    return res.status(403).json({ error: 'Access denied. Managers only.' });
-  }
-
+// Get expired cases (admins and managers only)
+router.get('/expired', auth, requireRole('admin', 'manager'), async (req, res) => {
   const knex = req.knex;
 
   try {
@@ -84,12 +77,8 @@ router.get('/cases/expired', auth, async (req, res) => {
   }
 });
 
-// Update case retention policy (managers only)
-router.patch('/cases/:caseId/policy', auth, validationRules.updateRetentionPolicy, async (req, res) => {
-  if (req.user.role !== 'manager') {
-    return res.status(403).json({ error: 'Access denied. Managers only.' });
-  }
-
+// Update case retention policy (admins and managers only)
+router.patch('/cases/:caseId/policy', auth, requireRole('admin', 'manager'), validationRules.updateRetentionPolicy, async (req, res) => {
   const knex = req.knex;
   const { policy, custom_date } = req.body;
 
@@ -121,12 +110,8 @@ router.patch('/cases/:caseId/policy', auth, validationRules.updateRetentionPolic
   }
 });
 
-// Set or remove legal hold (managers only)
-router.patch('/cases/:caseId/legal-hold', auth, validationRules.updateLegalHold, async (req, res) => {
-  if (req.user.role !== 'manager') {
-    return res.status(403).json({ error: 'Access denied. Managers only.' });
-  }
-
+// Set or remove legal hold (admins and managers only)
+router.patch('/cases/:caseId/legal-hold', auth, requireRole('admin', 'manager'), validationRules.updateLegalHold, async (req, res) => {
   const knex = req.knex;
   const { legal_hold } = req.body;
 
@@ -157,12 +142,8 @@ router.patch('/cases/:caseId/legal-hold', auth, validationRules.updateLegalHold,
   }
 });
 
-// Manually delete a specific case (managers only)
-router.delete('/cases/:caseId', auth, validationRules.validateCaseId, async (req, res) => {
-  if (req.user.role !== 'manager') {
-    return res.status(403).json({ error: 'Access denied. Managers only.' });
-  }
-
+// Manually delete a specific case (admins and managers only)
+router.delete('/cases/:caseId', auth, requireRole('admin', 'manager'), validationRules.validateCaseId, async (req, res) => {
   const knex = req.knex;
 
   try {
@@ -201,12 +182,8 @@ router.delete('/cases/:caseId', auth, validationRules.validateCaseId, async (req
   }
 });
 
-// Run retention cleanup manually (managers only)
-router.post('/cleanup/run', auth, async (req, res) => {
-  if (req.user.role !== 'manager') {
-    return res.status(403).json({ error: 'Access denied. Managers only.' });
-  }
-
+// Manual cleanup trigger (admins and managers only)
+router.post('/cleanup/run', auth, requireRole('admin', 'manager'), async (req, res) => {
   const knex = req.knex;
 
   try {
@@ -230,12 +207,8 @@ router.post('/cleanup/run', auth, async (req, res) => {
   }
 });
 
-// Get retention log (managers only)
-router.get('/log', auth, async (req, res) => {
-  if (req.user.role !== 'manager') {
-    return res.status(403).json({ error: 'Access denied. Managers only.' });
-  }
-
+// Get retention log (admins and managers only)
+router.get('/log', auth, requireRole('admin', 'manager'), async (req, res) => {
   const knex = req.knex;
   const limit = parseInt(req.query.limit) || 100;
   const offset = parseInt(req.query.offset) || 0;
@@ -259,12 +232,8 @@ router.get('/log', auth, async (req, res) => {
   }
 });
 
-// Get retention statistics (managers only)
-router.get('/stats', auth, async (req, res) => {
-  if (req.user.role !== 'manager') {
-    return res.status(403).json({ error: 'Access denied. Managers only.' });
-  }
-
+// Get retention statistics (admins and managers only)
+router.get('/stats', auth, requireRole('admin', 'manager'), async (req, res) => {
   const knex = req.knex;
 
   try {

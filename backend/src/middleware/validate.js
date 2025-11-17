@@ -245,7 +245,7 @@ const validationRules = {
     body('name').optional().trim().isLength({ min: 1, max: 255 }),
     body('email').optional().isEmail().normalizeEmail(),
     commonValidations.password(false),
-    commonValidations.enum('role', ['user', 'manager', 'admin']),
+    commonValidations.enum('role', ['admin', 'manager', 'user', 'support', 'viewer']),
     handleValidationErrors
   ],
   

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Security Scan Report - 20251117_052600</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+        .container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+        h2 { color: #34495e; margin-top: 30px; }
+        .severity-critical { color: #e74c3c; font-weight: bold; }
+        .severity-high { color: #e67e22; font-weight: bold; }
+        .severity-moderate { color: #f39c12; }
+        .status-ok { color: #27ae60; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #3498db; color: white; }
+        tr:hover { background-color: #f5f5f5; }
+        .metric { display: inline-block; margin: 10px 20px 10px 0; padding: 15px; background: #ecf0f1; border-radius: 5px; }
+        .metric-value { font-size: 24px; font-weight: bold; display: block; }
+        .metric-label { font-size: 12px; color: #7f8c8d; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔒 Security Vulnerability Scan Report</h1>
+        <p><strong>Scan Date:</strong> Mon Nov 17 05:26:08 UTC 2025</p>
+        <p><strong>Application:</strong> eDiscovery Demo</p>
+        
+        <h2>📊 Vulnerability Overview</h2>
+        <div class="metric">
+            <span class="metric-value severity-critical">0</span>
+            <span class="metric-label">Critical</span>
+        </div>
+        <div class="metric">
+            <span class="metric-value severity-high">3</span>
+            <span class="metric-label">High</span>
+        </div>
+        <div class="metric">
+            <span class="metric-value severity-moderate">42</span>
+            <span class="metric-label">Moderate</span>
+        </div>
+        
+        <h2>Backend Dependencies</h2>
+        <table>
+            <tr>
+                <th>Severity</th>
+                <th>Count</th>
+            </tr>
+            <tr>
+                <td class="severity-critical">Critical</td>
+                <td>0</td>
+            </tr>
+            <tr>
+                <td class="severity-high">High</td>
+                <td>0</td>
+            </tr>
+            <tr>
+                <td class="severity-moderate">Moderate</td>
+                <td>18</td>
+            </tr>
+        </table>
+        
+        <h2>Frontend Dependencies</h2>
+        <table>
+            <tr>
+                <th>Severity</th>
+                <th>Count</th>
+            </tr>
+            <tr>
+                <td class="severity-critical">Critical</td>
+                <td>0</td>
+            </tr>
+            <tr>
+                <td class="severity-high">High</td>
+                <td>3</td>
+            </tr>
+            <tr>
+                <td class="severity-moderate">Moderate</td>
+                <td>24</td>
+            </tr>
+        </table>
+        
+        <h2>Recommendations</h2>
+        <ul>
+            <li>Review and fix critical and high severity vulnerabilities immediately</li>
+            <li>Run <code>npm audit fix</code> to automatically fix compatible issues</li>
+            <li>Update outdated packages to latest secure versions</li>
+            <li>Consider using <code>npm audit fix --force</code> for breaking changes (test thoroughly)</li>
+            <li>Implement automated security scanning in CI/CD pipeline</li>
+        </ul>
+        
+        <p style="margin-top: 40px; color: #7f8c8d; font-size: 12px;">
+            Full reports available in: ./security-reports
+        </p>
+    </div>
+</body>
+</html>

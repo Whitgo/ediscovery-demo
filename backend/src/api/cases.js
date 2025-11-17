@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
+const { requireRole } = require('../middleware/rbac');
 const audit = require('../middleware/audit');
 const { calculateRetentionDate } = require('../utils/dataRetention');
 const { validationRules } = require('../middleware/validate');
@@ -44,9 +45,8 @@ router.get('/:id', auth, validationRules.validateId, async (req, res) => {
   }
 });
 
-router.post('/', auth, validationRules.createCase, async (req, res) => {
+router.post('/', auth, requireRole('admin', 'manager'), validationRules.createCase, async (req, res) => {
   const knex = req.knex;
-  if (req.user.role !== "manager") return res.status(403).json({ error: "Access denied" });
   const { name, number, status, assigned_to, notes, disposition, disposition_notes } = req.body;
   try {
     // Calculate retention date (10 years from now)
@@ -91,9 +91,8 @@ router.post('/', auth, validationRules.createCase, async (req, res) => {
   }
 });
 
-router.patch('/:id', auth, validationRules.updateCase, async (req, res) => {
+router.patch('/:id', auth, requireRole('admin', 'manager'), validationRules.updateCase, async (req, res) => {
   const knex = req.knex;
-  if (req.user.role !== "manager") return res.status(403).json({ error: "Access denied" });
   try {
     await knex('cases').where({ id: req.params.id }).update({ ...req.body, updated_at: knex.fn.now() });
     await audit({
@@ -110,9 +109,8 @@ router.patch('/:id', auth, validationRules.updateCase, async (req, res) => {
   }
 });
 
-router.delete('/:id', auth, validationRules.validateId, async (req, res) => {
+router.delete('/:id', auth, requireRole('admin', 'manager'), validationRules.validateId, async (req, res) => {
   const knex = req.knex;
-  if (req.user.role !== "manager") return res.status(403).json({ error: "Access denied" });
   try {
     await knex('cases').where({ id: req.params.id }).first().del();
     await audit({

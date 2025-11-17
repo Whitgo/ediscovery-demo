@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { apiGet, apiPost, apiPatch, apiDelete } from "../utils/api";
 import GlobalSearch from "./GlobalSearch";
+import { canAccess } from "../utils/rbac";
 
 export default function Dashboard({ onOpenCase, user }) {
   const [cases, setCases] = useState([]);
@@ -39,8 +40,8 @@ export default function Dashboard({ onOpenCase, user }) {
       const newStats = calculateStats(cs, allDocs);
       setStats(newStats);
       
-      // Load retention data (managers only)
-      if (user && user.role === 'manager') {
+      // Load retention data (managers and admins only)
+      if (user && canAccess(user.role, 'read', 'retention')) {
         try {
           const retStats = await apiGet('/retention/stats');
           setRetentionStats(retStats);
@@ -504,7 +505,7 @@ export default function Dashboard({ onOpenCase, user }) {
       </div>
 
       {/* Data Retention Panel (Managers Only) */}
-      {user && user.role === 'manager' && retentionStats && (
+      {user && canAccess(user.role, 'read', 'retention') && retentionStats && (
         <div style={{
           background: '#fff',
           border: '1px solid #e2e8f0',

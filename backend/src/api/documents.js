@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router({ mergeParams: true });
 const auth = require('../middleware/auth');
+const { requireRole } = require('../middleware/rbac');
 const audit = require('../middleware/audit');
 const { upload, encryptUploadedFile } = require('../middleware/upload');
 const { notifyUsersInCase } = require('./notifications');

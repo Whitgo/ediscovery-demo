@@ -2,14 +2,11 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const auth = require('../middleware/auth');
+const { requireRole } = require('../middleware/rbac');
 const { validationRules } = require('../middleware/validate');
 
-// Get all users (managers only)
-router.get('/', auth, async (req, res) => {
-  if (req.user.role !== 'manager') {
-    return res.status(403).json({ error: 'Access denied. Managers only.' });
-  }
-
+// Get all users (admins and managers only)
+router.get('/', auth, requireRole('admin', 'manager'), async (req, res) => {
   const knex = req.knex;
   try {
     const users = await knex('users')
@@ -21,12 +18,8 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// Get single user (managers only)
-router.get('/:id', auth, validationRules.validateId, async (req, res) => {
-  if (req.user.role !== 'manager') {
-    return res.status(403).json({ error: 'Access denied. Managers only.' });
-  }
-
+// Get single user (admins and managers only)
+router.get('/:id', auth, requireRole('admin', 'manager'), validationRules.validateId, async (req, res) => {
   const knex = req.knex;
   try {
     const user = await knex('users')
@@ -44,12 +37,8 @@ router.get('/:id', auth, validationRules.validateId, async (req, res) => {
   }
 });
 
-// Create new user (managers only)
-router.post('/', auth, validationRules.createUser, async (req, res) => {
-  if (req.user.role !== 'manager') {
-    return res.status(403).json({ error: 'Access denied. Managers only.' });
-  }
-
+// Create new user (admins and managers only)
+router.post('/', auth, requireRole('admin', 'manager'), validationRules.createUser, async (req, res) => {
   const knex = req.knex;
   const { name, email, password, role } = req.body;
 
@@ -62,9 +51,14 @@ router.post('/', auth, validationRules.createUser, async (req, res) => {
     return res.status(400).json({ error: 'Password must be at least 6 characters' });
   }
 
-  const validRoles = ['manager', 'user', 'support', 'viewer'];
+  const validRoles = ['admin', 'manager', 'user', 'support', 'viewer'];
   if (!validRoles.includes(role)) {
     return res.status(400).json({ error: 'Invalid role' });
+  }
+
+  // Only admins can create other admins
+  if (role === 'admin' && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can create admin accounts' });
   }
 
   try {
@@ -108,12 +102,8 @@ router.post('/', auth, validationRules.createUser, async (req, res) => {
   }
 });
 
-// Update user (managers only)
-router.patch('/:id', auth, validationRules.updateUser, async (req, res) => {
-  if (req.user.role !== 'manager') {
-    return res.status(403).json({ error: 'Access denied. Managers only.' });
-  }
-
+// Update user (admins and managers only)
+router.patch('/:id', auth, requireRole('admin', 'manager'), validationRules.updateUser, async (req, res) => {
   const knex = req.knex;
   const { name, email, password, role } = req.body;
 
@@ -123,9 +113,14 @@ router.patch('/:id', auth, validationRules.updateUser, async (req, res) => {
   }
 
   if (role) {
-    const validRoles = ['manager', 'user', 'support', 'viewer'];
+    const validRoles = ['admin', 'manager', 'user', 'support', 'viewer'];
     if (!validRoles.includes(role)) {
       return res.status(400).json({ error: 'Invalid role' });
+    }
+
+    // Only admins can assign/change admin role
+    if (role === 'admin' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can assign admin role' });
     }
   }
 
@@ -178,12 +173,8 @@ router.patch('/:id', auth, validationRules.updateUser, async (req, res) => {
   }
 });
 
-// Delete user (managers only)
-router.delete('/:id', auth, validationRules.validateId, async (req, res) => {
-  if (req.user.role !== 'manager') {
-    return res.status(403).json({ error: 'Access denied. Managers only.' });
-  }
-
+// Delete user (admins and managers only)
+router.delete('/:id', auth, requireRole('admin', 'manager'), validationRules.validateId, async (req, res) => {
   const knex = req.knex;
 
   try {
@@ -196,6 +187,11 @@ router.delete('/:id', auth, validationRules.validateId, async (req, res) => {
     // Prevent self-deletion
     if (user.id === req.user.id) {
       return res.status(400).json({ error: 'Cannot delete your own account' });
+    }
+
+    // Only admins can delete other admins
+    if (user.role === 'admin' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can delete admin accounts' });
     }
 
     // Delete user

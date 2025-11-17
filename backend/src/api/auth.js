@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const { validationRules } = require('../middleware/validate');
+const { detectBruteForce } = require('../utils/incidentDetection');
 
 // Helper to log failed login attempts
 async function logFailedLogin(knex, email, ip, userAgent) {
@@ -47,6 +48,10 @@ router.post('/login', validationRules.login, async (req, res) => {
     
     if (!match) {
       await logFailedLogin(knex, email, ip, userAgent);
+      
+      // Check for brute force attack
+      await detectBruteForce(knex, email, ip);
+      
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 

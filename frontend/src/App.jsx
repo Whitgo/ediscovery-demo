@@ -7,7 +7,10 @@ import CaseDetail from "./components/CaseDetail";
 import UserManagement from "./components/UserManagement";
 import NotificationsPanel from "./components/NotificationsPanel";
 import NotificationPreferences from "./components/NotificationPreferences";
+import IncidentDashboard from "./components/IncidentDashboard";
+import NotFound from "./components/NotFound";
 import { getToken, apiGet } from "./utils/api";
+import { hasRole, canAccess, ROLES } from "./utils/rbac";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -30,7 +33,7 @@ function App() {
 
   // Poll for unread notifications count
   useEffect(() => {
-    if (!user || !['user', 'manager'].includes(user.role)) return;
+    if (!user || !canAccess(user.role, 'read', 'notification')) return;
 
     const fetchUnreadCount = async () => {
       try {
@@ -125,7 +128,7 @@ function App() {
               >
                 Dashboard
               </button>
-              {user.role === 'manager' && (
+              {hasRole(user.role, ROLES.ADMIN, ROLES.MANAGER) && (
                 <button
                   onClick={openUserManagement}
                   style={{
@@ -142,7 +145,24 @@ function App() {
                   👥 Users
                 </button>
               )}
-              {['user', 'manager'].includes(user.role) && (
+              {canAccess(user.role, 'read', 'incident') && (
+                <button
+                  onClick={() => setView('incidents')}
+                  style={{
+                    padding: '8px 16px',
+                    background: view === 'incidents' ? '#edf2f7' : 'transparent',
+                    color: view === 'incidents' ? '#2166e8' : '#4a5568',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontWeight: '600',
+                    fontSize: '0.9em'
+                  }}
+                >
+                  🚨 Incidents
+                </button>
+              )}
+              {canAccess(user.role, 'read', 'notification') && (
                 <button
                   onClick={openNotificationSettings}
                   style={{
@@ -162,7 +182,7 @@ function App() {
             </nav>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            {['user', 'manager'].includes(user.role) && (
+            {canAccess(user.role, 'read', 'notification') && (
               <button
                 onClick={toggleNotifications}
                 style={{
@@ -235,16 +255,22 @@ function App() {
           {view === "case" && (
             <CaseDetail caseId={caseId} onBack={backToDashboard} />
           )}
-          {view === "users" && user.role === 'manager' && (
+          {view === "users" && canAccess(user.role, 'read', 'user') && (
             <UserManagement />
           )}
-          {view === "notification-settings" && ['user', 'manager'].includes(user.role) && (
+          {view === "incidents" && canAccess(user.role, 'read', 'incident') && (
+            <IncidentDashboard />
+          )}
+          {view === "notification-settings" && canAccess(user.role, 'read', 'notification') && (
             <NotificationPreferences />
+          )}
+          {!["dashboard", "case", "users", "incidents", "notification-settings"].includes(view) && (
+            <NotFound />
           )}
         </div>
 
         {/* Notifications Panel */}
-        {showNotifications && ['user', 'manager'].includes(user.role) && (
+        {showNotifications && canAccess(user.role, 'read', 'notification') && (
           <NotificationsPanel
             onClose={() => setShowNotifications(false)}
             onNavigateToCase={handleNotificationNavigate}

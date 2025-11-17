@@ -5,6 +5,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
+const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const knexConfig = require('../config/knexfile')[process.env.NODE_ENV || 'development'];
 const Knex = require('knex');
@@ -24,24 +25,40 @@ const userRoutes = require('./api/users');
 const notificationRoutes = require('./api/notifications');
 const retentionRoutes = require('./api/retention');
 const privacyRoutes = require('./api/privacy');
+const incidentRoutes = require('./api/incidents');
+const backupRoutes = require('./api/backups');
 const { startRetentionJob } = require('./jobs/retentionCleanup');
+const { startBackupScheduler } = require('./jobs/backupScheduler');
 
 const app = express();
 
-// Security headers middleware
-app.use((req, res, next) => {
-  // HSTS - Force HTTPS for 1 year
-  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  // Prevent MIME type sniffing
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  // Prevent clickjacking
-  res.setHeader('X-Frame-Options', 'DENY');
-  // XSS Protection
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  // Content Security Policy
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'");
-  next();
-});
+// Security headers with Helmet
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  },
+  frameguard: {
+    action: 'deny'
+  },
+  referrerPolicy: {
+    policy: 'strict-origin-when-cross-origin'
+  }
+}));
 
 // CORS Configuration - Tightened for security
 const allowedOrigins = process.env.CORS_ORIGIN 
@@ -94,13 +111,7 @@ const authLimiter = rateLimit({
   standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
   legacyHeaders: false, // Disable `X-RateLimit-*` headers
   // Skip successful logins from counting (only count failed attempts)
-  skipSuccessfulRequests: true,
-  // Custom key generator to use IP address (handles IPv4 and IPv6)
-  keyGenerator: (req) => {
-    // Normalize IPv6-mapped IPv4 addresses
-    const ip = req.ip || req.connection.remoteAddress || 'unknown';
-    return ip.replace(/^::ffff:/, '');
-  }
+  skipSuccessfulRequests: true
 });
 
 // Moderate rate limit for general API endpoints
@@ -150,6 +161,8 @@ app.use('/api/users', apiLimiter, userRoutes);
 app.use('/api/notifications', apiLimiter, notificationRoutes);
 app.use('/api/retention', apiLimiter, retentionRoutes);
 app.use('/api/privacy', apiLimiter, privacyRoutes);
+app.use('/api/incidents', apiLimiter, incidentRoutes);
+app.use('/api/backups', apiLimiter, backupRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 
@@ -186,6 +199,9 @@ if (httpsOptions) {
   httpsServer.listen(HTTPS_PORT, () => {
     console.log(`🔒 eDiscovery API (HTTPS) listening on port ${HTTPS_PORT}`);
     startRetentionJob(knex);
+    console.log('✅ Data retention cleanup job started');
+    startBackupScheduler();
+    console.log('✅ Automated backup scheduler started');
   });
   
   // HTTP server that redirects to HTTPS
@@ -203,5 +219,8 @@ if (httpsOptions) {
     console.log(`⚠️  eDiscovery API (HTTP only) listening on port ${PORT}`);
     console.log(`   WARNING: Running without HTTPS - not secure for production!`);
     startRetentionJob(knex);
+    console.log('✅ Data retention cleanup job started');
+    startBackupScheduler();
+    console.log('✅ Automated backup scheduler started');
   });
 }

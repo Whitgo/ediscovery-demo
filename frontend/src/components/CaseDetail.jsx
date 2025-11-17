@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { apiGet, apiPost, apiDelete } from "../utils/api";
 import { useUser } from "../context/UserContext";
+import { canAccess } from "../utils/rbac";
 import FileUploadModal from "./FileUploadModal";
 import BulkFileUploadModal from "./BulkFileUploadModal";
 import DocumentMetadataForm from "./DocumentMetadataForm";
@@ -119,7 +120,7 @@ export default function CaseDetail({ caseId, onBack }) {
       <div style={{margin:"1em 0", color:"#777"}}>{casedata.notes}</div>
       <div>
         <h4>Documents</h4>
-        {user.role === "manager" || user.role === "support" || user.role === "user" ? (
+        {canAccess(user.role, 'upload', 'document') ? (
           <div style={{ marginBottom: 12 }}>
             <div style={{ display: 'flex', gap: '8px', marginBottom: 8, flexWrap: 'wrap' }}>
               <button 
@@ -445,7 +446,7 @@ export default function CaseDetail({ caseId, onBack }) {
                 
                 {/* Action Buttons */}
                 <div style={{ display: 'flex', gap: '8px', marginLeft: '16px' }}>
-                  {(user.role === "manager" || user.role === "support") && editingDocId !== doc.id && (
+                  {canAccess(user.role, 'edit', 'document') && editingDocId !== doc.id && (
                     <>
                       <button
                         onClick={() => setEditingDocId(doc.id)}
@@ -503,7 +504,7 @@ export default function CaseDetail({ caseId, onBack }) {
           ))}
         </ul>
       </div>
-      {(user.role === "manager" || user.role === "support") && (
+      {canAccess(user.role, 'read', 'audit') && (
         <div>
           <button style={{marginTop:10}} onClick={() => { setShowAudit(v=>!v); if (!audit.length) loadAudit(); }}>
             {showAudit ? "Hide" : "Show"} Audit Log
