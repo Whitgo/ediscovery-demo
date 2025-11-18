@@ -16,6 +16,7 @@ const {
   sendRegulatoryBreachNotification,
   sendUserBreachNotification 
 } = require('../utils/emailService');
+const logger = require('../utils/logger');
 
 /**
  * Helper to log audit events
@@ -116,7 +117,7 @@ router.get('/', authenticate, requireRole('manager', 'admin'), async (req, res) 
     });
     
   } catch (error) {
-    console.error('Error fetching incidents:', error);
+    logger.error('Error fetching incidents', { error: error.message, stack: error.stack, query: req.query, userId: req.user?.id });
     res.status(500).json({ error: 'Failed to fetch incidents' });
   }
 });
@@ -164,7 +165,7 @@ router.get('/dashboard', authenticate, requireRole('manager', 'admin'), async (r
     });
     
   } catch (error) {
-    console.error('Error fetching dashboard:', error);
+    logger.error('Error fetching dashboard', { error: error.message, stack: error.stack, userId: req.user?.id });
     res.status(500).json({ error: 'Failed to fetch dashboard data' });
   }
 });
@@ -222,7 +223,7 @@ router.get('/:id', authenticate, requireRole('manager', 'admin'), async (req, re
     });
     
   } catch (error) {
-    console.error('Error fetching incident:', error);
+    logger.error('Error fetching incident', { error: error.message, stack: error.stack, incidentId: req.params.id, userId: req.user?.id });
     res.status(500).json({ error: 'Failed to fetch incident' });
   }
 });
@@ -285,7 +286,7 @@ router.post('/', authenticate, requireRole('manager', 'admin'), async (req, res)
     res.status(201).json({ incident, message: 'Incident created successfully' });
     
   } catch (error) {
-    console.error('Error creating incident:', error);
+    logger.error('Error creating incident', { error: error.message, stack: error.stack, body: req.body, userId: req.user?.id });
     res.status(500).json({ error: 'Failed to create incident' });
   }
 });
@@ -318,7 +319,7 @@ router.patch('/:id/status', authenticate, requireRole('manager', 'admin'), async
     res.json({ incident, message: 'Status updated successfully' });
     
   } catch (error) {
-    console.error('Error updating status:', error);
+    logger.error('Error updating status', { error: error.message, stack: error.stack, incidentId: req.params.id, status: req.body.status, userId: req.user?.id });
     res.status(500).json({ error: error.message });
   }
 });
@@ -354,7 +355,7 @@ router.patch('/:id/assign', authenticate, requireRole('manager', 'admin'), async
     res.json({ message: 'Incident assigned successfully' });
     
   } catch (error) {
-    console.error('Error assigning incident:', error);
+    logger.error('Error assigning incident', { error: error.message, stack: error.stack, incidentId: req.params.id, assignToUserId: req.body.user_id, userId: req.user?.id });
     res.status(500).json({ error: 'Failed to assign incident' });
   }
 });
@@ -438,7 +439,7 @@ router.post('/:id/breach-notification', authenticate, requireRole('admin'), asyn
       }
       
       if (emailResult.success) {
-        console.log(`✅ Email sent successfully to ${recipient_email}`);
+        logger.info('Email sent successfully', { recipient: recipient_email, notificationType: notification_type, incidentId: id, userId: req.user?.id });
         
         // Update notification record with delivery confirmation
         await knex('incident_notifications')
@@ -449,10 +450,10 @@ router.post('/:id/breach-notification', authenticate, requireRole('admin'), asyn
             delivery_confirmation: JSON.stringify(emailResult)
           });
       } else {
-        console.warn(`⚠️  Email not sent: ${emailResult.message || 'Email service not configured'}`);
+        logger.warn('Email not sent', { message: emailResult.message || 'Email service not configured', recipient: recipient_email, notificationType: notification_type, incidentId: id });
       }
     } catch (emailError) {
-      console.error('Email sending error:', emailError);
+      logger.error('Email sending error', { error: emailError.message, stack: emailError.stack, recipient: recipient_email, notificationType: notification_type, incidentId: id, userId: req.user?.id });
       // Continue even if email fails - record is already created
     }
     
@@ -470,7 +471,7 @@ router.post('/:id/breach-notification', authenticate, requireRole('admin'), asyn
     });
     
   } catch (error) {
-    console.error('Error sending notification:', error);
+    logger.error('Error sending notification', { error: error.message, stack: error.stack, incidentId: req.params.id, recipient: req.body.recipient_email, userId: req.user?.id });
     res.status(500).json({ error: 'Failed to send notification' });
   }
 });
@@ -502,7 +503,7 @@ router.post('/:id/complete-notification', authenticate, requireRole('admin'), as
     res.json({ message: 'Notification marked as complete' });
     
   } catch (error) {
-    console.error('Error completing notification:', error);
+    logger.error('Error completing notification', { error: error.message, stack: error.stack, incidentId: req.params.id, userId: req.user?.id });
     res.status(500).json({ error: 'Failed to complete notification' });
   }
 });
@@ -527,7 +528,7 @@ router.post('/:id/comment', authenticate, requireRole('manager', 'admin'), async
     res.json({ message: 'Comment added successfully' });
     
   } catch (error) {
-    console.error('Error adding comment:', error);
+    logger.error('Error adding comment', { error: error.message, stack: error.stack, incidentId: req.params.id, userId: req.user?.id });
     res.status(500).json({ error: 'Failed to add comment' });
   }
 });
@@ -550,7 +551,7 @@ router.get('/admin/check-deadlines', authenticate, requireRole('admin'), async (
     });
     
   } catch (error) {
-    console.error('Error checking deadlines:', error);
+    logger.error('Error checking deadlines', { error: error.message, stack: error.stack, userId: req.user?.id });
     res.status(500).json({ error: 'Failed to check deadlines' });
   }
 });

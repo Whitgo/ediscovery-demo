@@ -8,6 +8,7 @@ const { notifyUsersInCase } = require('./notifications');
 const { decryptFile, isEncryptionEnabled } = require('../utils/encryption');
 const path = require('path');
 const fs = require('fs');
+const logger = require('../utils/logger');
 
 router.get('/case/:caseId/documents', auth, async (req, res) => {
   const knex = req.knex;
@@ -33,7 +34,7 @@ router.get('/case/:caseId/documents/:docId', auth, async (req, res) => {
     
     res.json(doc);
   } catch (e) {
-    console.error('Get document error:', e);
+    logger.error('Get document error', { error: e.message, stack: e.stack, docId: req.params.docId, caseId: req.params.caseId, userId: req.user?.id });
     res.status(500).json({ error: e.message });
   }
 });
@@ -65,7 +66,7 @@ router.post('/case/:caseId/documents/:docId/view', auth, async (req, res) => {
     
     res.json({ success: true, message: 'Document view logged' });
   } catch (e) {
-    console.error('View logging error:', e);
+    logger.error('View logging error', { error: e.message, stack: e.stack, docId: req.params.docId, caseId: req.params.caseId, userId: req.user?.id });
     // Don't fail if logging fails
     res.status(500).json({ error: 'Failed to log view', details: e.message });
   }
@@ -281,7 +282,7 @@ router.get('/case/:caseId/documents/:docId/download', auth, async (req, res) => 
           });
 
           fileStream.on('error', (err) => {
-            console.error('Stream error:', err);
+            logger.error('Stream error', { error: err.message, stack: err.stack, docId: req.params.docId, caseId: req.params.caseId, userId: req.user?.id });
             // Clean up on error
             tempFiles.forEach(file => {
               if (fs.existsSync(file)) {
@@ -292,7 +293,7 @@ router.get('/case/:caseId/documents/:docId/download', auth, async (req, res) => 
 
           return fileStream.pipe(res);
         } catch (decryptError) {
-          console.error('Decryption error:', decryptError);
+          logger.error('Decryption error', { error: decryptError.message, stack: decryptError.stack, docId: req.params.docId, caseId: req.params.caseId, userId: req.user?.id, filePath });
           return res.status(500).json({ 
             error: 'Failed to decrypt file', 
             details: decryptError.message 

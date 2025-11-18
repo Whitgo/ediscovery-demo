@@ -20,7 +20,7 @@ async function logFailedLogin(knex, email, ip, userAgent) {
       timestamp: knex.fn.now()
     });
   } catch (err) {
-    console.error('Failed to log failed login:', err);
+    logger.error('Failed to log failed login attempt', { error: err.message, username });
   }
 }
 
@@ -79,7 +79,7 @@ router.post('/login', validationRules.login, async (req, res) => {
     
     res.json({ token, user: payload });
   } catch (err) {
-    console.error('Login error:', err);
+    logger.error('Login error', { error: err.message, email });
     await logFailedLogin(knex, email, ip, userAgent);
     res.status(500).json({ error: 'Login failed', details: err.message });
   }

@@ -1,4 +1,5 @@
 /**
+const logger = require('./logger');
  * Incident Detection Utilities
  * Automatically detect security incidents and create incident records
  */
@@ -168,7 +169,7 @@ async function createIncident(knex, incidentData) {
     .first();
   
   if (!incidentType) {
-    console.error(`Incident type "${type_name}" not found`);
+    logger.error('Incident type not found', { typeName: type_name });
     return null;
   }
   
@@ -235,20 +236,20 @@ async function createIncident(knex, incidentData) {
     })
   });
   
-  console.log(`🚨 Incident created: ${incidentNumber} - ${title}`);
+  logger.info('Incident created', { incidentNumber, title });
   
   // Send notifications if required
   if (requires_notification && notificationDeadline) {
-    console.warn(`⏰ GDPR Notification deadline: ${notificationDeadline.toISOString()}`);
+    logger.warn('GDPR Notification deadline', { deadline: notificationDeadline.toISOString() });
     
     // Send email alert to incident response team
     const teamEmails = (process.env.INCIDENT_TEAM_EMAILS || '').split(',').filter(e => e.trim());
     if (teamEmails.length > 0) {
       try {
         await sendInternalIncidentAlert({ incident, teamEmails });
-        console.log(`📧 Incident alert sent to ${teamEmails.length} team member(s)`);
+        logger.info('Incident alert sent', { recipientCount: teamEmails.length });
       } catch (emailError) {
-        console.error('Failed to send incident alert email:', emailError.message);
+        logger.error('Failed to send incident alert email', { error: emailError.message });
       }
     }
   }
@@ -324,9 +325,9 @@ async function checkNotificationDeadlines(knex) {
     if (reminderEmails.length > 0) {
       try {
         await sendDeadlineReminder({ incident, reminderEmails, hoursRemaining });
-        console.log(`📧 Deadline reminder sent for incident ${incident.incident_number}`);
+        logger.info('Deadline reminder sent', { incidentNumber: incident.incident_number });
       } catch (emailError) {
-        console.error('Failed to send deadline reminder:', emailError.message);
+        logger.error('Failed to send deadline reminder', { error: emailError.message });
       }
     }
   }
@@ -349,9 +350,9 @@ async function checkNotificationDeadlines(knex) {
           reminderEmails: escalationEmails, 
           hoursRemaining: -Math.floor((now - new Date(incident.notification_deadline)) / (60 * 60 * 1000))
         });
-        console.log(`📧 Escalation email sent for overdue incident ${incident.incident_number}`);
+        logger.info('Escalation email sent for overdue incident', { incidentNumber: incident.incident_number });
       } catch (emailError) {
-        console.error('Failed to send escalation email:', emailError.message);
+        logger.error('Failed to send escalation email', { error: emailError.message });
       }
     }
   }

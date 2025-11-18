@@ -8,6 +8,7 @@ const fs = require('fs').promises;
 const fsSync = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const logger = require('./logger');
 const { exec } = require('child_process');
 const util = require('util');
 const execPromise = util.promisify(exec);
@@ -28,7 +29,7 @@ async function ensureBackupDir() {
     await fs.access(BACKUP_DIR);
   } catch {
     await fs.mkdir(BACKUP_DIR, { recursive: true });
-    console.log(`✅ Created backup directory: ${BACKUP_DIR}`);
+    logger.info('Created backup directory', { path: BACKUP_DIR });
   }
 }
 
@@ -68,14 +69,14 @@ async function encryptBackupFile(inputFile) {
   const encryptionKey = getEncryptionKey();
   
   if (!encryptionKey) {
-    console.log('ℹ️  Backup encryption not configured - storing unencrypted');
+    logger.info('Backup encryption not configured - storing unencrypted');
     return { encrypted: false, outputFile: inputFile };
   }
   
   const outputFile = `${inputFile}.enc`;
   
   try {
-    console.log('🔐 Encrypting backup file...');
+    logger.info('Encrypting backup file', { inputFile: path.basename(inputFile) });
     
     // Generate random IV and salt
     const iv = crypto.randomBytes(IV_LENGTH);
@@ -109,11 +110,14 @@ async function encryptBackupFile(inputFile) {
     
     // Verify encrypted file was created
     const stats = await fs.stat(outputFile);
-    console.log(`✅ Backup encrypted: ${path.basename(outputFile)} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
+    logger.info('Backup encrypted successfully', { 
+      filename: path.basename(outputFile), 
+      sizeMB: (stats.size / 1024 / 1024).toFixed(2) 
+    });
     
     // Delete unencrypted backup file
     await fs.unlink(inputFile);
-    console.log(`🗑️  Removed unencrypted backup file`);
+    logger.debug('Removed unencrypted backup file');
     
     return {
       encrypted: true,
@@ -123,9 +127,9 @@ async function encryptBackupFile(inputFile) {
     };
     
   } catch (error) {
-    console.error('❌ Encryption failed:', error.message);
+    logger.error('Encryption failed', { error: error.message, inputFile: path.basename(inputFile) });
     
-    // Clean up encrypted file if it exists
+    // Clean up output file if it exists
     try {
       await fs.unlink(outputFile);
     } catch {}
@@ -146,14 +150,14 @@ async function decryptBackupFile(inputFile) {
   
   // Check if file is encrypted (has .enc extension)
   if (!inputFile.endsWith('.enc')) {
-    console.log('ℹ️  Backup file not encrypted');
+    logger.info('Backup file not encrypted', { filename: path.basename(backupFile) });
     return { decrypted: false, outputFile: inputFile };
   }
   
   const outputFile = inputFile.replace(/\.enc$/, '');
   
   try {
-    console.log('🔓 Decrypting backup file...');
+    logger.info('Decrypting backup file', { filename: path.basename(backupFile) });
     
     // Read encrypted file
     const encryptedData = await fs.readFile(inputFile);
@@ -178,7 +182,7 @@ async function decryptBackupFile(inputFile) {
     await fs.writeFile(outputFile, decryptedData);
     
     const stats = await fs.stat(outputFile);
-    console.log(`✅ Backup decrypted: ${path.basename(outputFile)} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
+    logger.info('Backup decrypted successfully', { filename: path.basename(outputFile), sizeMB: (stats.size / 1024 / 1024).toFixed(2) });
     
     return {
       decrypted: true,
@@ -187,9 +191,9 @@ async function decryptBackupFile(inputFile) {
     };
     
   } catch (error) {
-    console.error('❌ Decryption failed:', error.message);
+    logger.error('Decryption failed', { error: error.message, backupFile: path.basename(backupFile) });
     
-    // Clean up decrypted file if it exists
+    // Clean up output file if it exists
     try {
       await fs.unlink(outputFile);
     } catch {}
@@ -235,7 +239,7 @@ async function performBackup() {
     throw new Error('Invalid database port');
   }
   
-  console.log(`🔄 Starting backup: ${path.basename(backupFile)}`);
+  logger.info('Starting backup', { filename: path.basename(backupFile) });
   
   try {
     // Use pg_dump to create backup with sanitized inputs
@@ -244,7 +248,7 @@ async function performBackup() {
     const { stdout, stderr } = await execPromise(command);
     
     if (stderr && !stderr.includes('WARNING')) {
-      console.error('⚠️  Backup warnings:', stderr);
+      logger.warn('Backup warnings', { stderr });
     }
     
     // Verify backup file exists and has content
@@ -253,7 +257,7 @@ async function performBackup() {
       throw new Error('Backup file is empty');
     }
     
-    console.log(`✅ Backup completed successfully: ${path.basename(backupFile)} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
+    logger.info('Backup completed successfully', { filename: path.basename(backupFile), sizeMB: (stats.size / 1024 / 1024).toFixed(2) });
     
     // Encrypt backup file if encryption is enabled
     const encryptionResult = await encryptBackupFile(backupFile);
@@ -273,7 +277,7 @@ async function performBackup() {
     };
     
   } catch (error) {
-    console.error('❌ Backup failed:', error.message);
+    logger.error('Backup failed', { error: error.message });
     
     // Clean up failed backup file if it exists
     try {
@@ -307,14 +311,14 @@ async function cleanupOldBackups() {
       for (const file of filesToDelete) {
         const filepath = path.join(BACKUP_DIR, file);
         await fs.unlink(filepath);
-        console.log(`🗑️  Deleted old backup: ${file}`);
+        logger.info('Deleted old backup', { filename: file });
       }
     }
     
-    console.log(`📊 Total backups retained: ${Math.min(backupFiles.length, MAX_BACKUPS)}`);
+    logger.info('Total backups retained', { count: Math.min(backupFiles.length, MAX_BACKUPS) });
     
   } catch (error) {
-    console.error('⚠️  Error cleaning up old backups:', error.message);
+    logger.error('Error cleaning up old backups', { error: error.message });
   }
 }
 
@@ -348,7 +352,7 @@ async function listBackups() {
     return backups;
     
   } catch (error) {
-    console.error('❌ Error listing backups:', error.message);
+    logger.error('Error listing backups', { error: error.message });
     return [];
   }
 }
@@ -379,13 +383,13 @@ async function restoreBackup(backupFile = null) {
     // Verify backup file exists
     await fs.access(backupFile);
     
-    console.log(`🔄 Starting restore from: ${path.basename(backupFile)}`);
+    logger.info('Starting restore from backup', { filename: path.basename(backupFile) });
     
     // Decrypt backup file if it's encrypted
     let actualBackupFile = backupFile;
     let decryptResult = null;
     if (backupFile.endsWith('.enc')) {
-      console.log('🔓 Decrypting backup file...');
+      logger.info('Decrypting backup file');
       decryptResult = await decryptBackupFile(backupFile);
       actualBackupFile = decryptResult.outputFile;
     }
@@ -417,32 +421,32 @@ async function restoreBackup(backupFile = null) {
     }
     
     // Drop and recreate database (for clean restore)
-    console.log('⚠️  Dropping existing database...');
+    logger.warn('Dropping existing database');
     const dropCommand = `PGPASSWORD="${dbPassword}" psql -h ${safeHost} -p ${safePort} -U ${safeUser} -d postgres -c "DROP DATABASE IF EXISTS ${safeName};"`;
     await execPromise(dropCommand);
     
-    console.log('🔄 Creating fresh database...');
+    logger.info('Creating fresh database');
     const createCommand = `PGPASSWORD="${dbPassword}" psql -h ${safeHost} -p ${safePort} -U ${safeUser} -d postgres -c "CREATE DATABASE ${safeName};"`;
     await execPromise(createCommand);
     
     // Restore from backup
-    console.log('📥 Restoring data from backup...');
+    logger.info('Restoring data from backup');
     const restoreCommand = `PGPASSWORD="${dbPassword}" psql -h ${safeHost} -p ${safePort} -U ${safeUser} -d ${safeName} -f "${actualBackupFile}"`;
     const { stdout, stderr } = await execPromise(restoreCommand);
     
     if (stderr && !stderr.includes('WARNING') && !stderr.includes('NOTICE')) {
-      console.error('⚠️  Restore warnings:', stderr);
+      logger.warn('Restore warnings', { stderr });
     }
     
     // Clean up decrypted file if we created one
     if (decryptResult) {
       try {
         await fs.unlink(actualBackupFile);
-        console.log('🧹 Cleaned up decrypted backup file');
+        logger.debug('Cleaned up decrypted backup file');
       } catch {}
     }
     
-    console.log(`✅ Database restored successfully from: ${path.basename(backupFile)}`);
+    logger.info('Database restored successfully', { filename: path.basename(backupFile) });
     
     return {
       success: true,
@@ -452,7 +456,7 @@ async function restoreBackup(backupFile = null) {
     };
     
   } catch (error) {
-    console.error('❌ Restore failed:', error.message);
+    logger.error('Restore failed', { error: error.message });
     return {
       success: false,
       error: error.message,

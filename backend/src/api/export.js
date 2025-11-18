@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const logger = require('../utils/logger');
 const archiver = require('archiver');
 const fs = require('fs');
 const path = require('path');
@@ -64,7 +65,11 @@ router.post('/case/:caseId/documents', auth, async (req, res) => {
     // Check if any documents are missing stored files
     const missingFiles = documents.filter(doc => !doc.stored_filename);
     if (missingFiles.length > 0) {
-      console.warn(`Export warning: ${missingFiles.length} documents have no stored file`);
+      logger.warn('Export warning: documents have no stored file', { 
+        count: missingFiles.length, 
+        caseId, 
+        userId: req.user?.id 
+      });
     }
 
     // Get all tags for these documents
@@ -127,7 +132,7 @@ router.post('/case/:caseId/documents', auth, async (req, res) => {
       const doc = documents[i];
       
       if (!doc.stored_filename) {
-        console.warn(`Skipping document ${doc.id} - no stored file`);
+        logger.warn('Skipping document - no stored file', { documentId: doc.id, caseId });
         continue;
       }
 
@@ -135,7 +140,7 @@ router.post('/case/:caseId/documents', auth, async (req, res) => {
       
       // Check if file exists
       if (!fs.existsSync(filePath)) {
-        console.warn(`File not found: ${filePath}`);
+        logger.warn('File not found during export', { filePath, documentId: doc.id, caseId });
         continue;
       }
 
@@ -203,14 +208,23 @@ router.post('/case/:caseId/documents', auth, async (req, res) => {
         created_at: knex.fn.now()
       });
     } catch (auditError) {
-      console.error('Failed to log export audit:', auditError);
+      logger.error('Failed to log export audit', { 
+        error: auditError.message, 
+        caseId, 
+        userId: req.user?.id 
+      });
       // Don't fail the export if audit logging fails
     }
 
     // Finalize archive
     await archive.finalize();
 
-    console.log(`Export completed: ${addedCount} files for case ${caseData.number}`);
+    logger.info('Export completed', { 
+      filesCount: addedCount, 
+      caseNumber: caseData.number, 
+      caseId, 
+      userId: req.user?.id 
+    });
     
     // Send notification to the user
     if (req.user.role === 'user' || req.user.role === 'manager') {
@@ -229,7 +243,12 @@ router.post('/case/:caseId/documents', auth, async (req, res) => {
     }
 
   } catch (error) {
-    console.error('Export error:', error);
+    logger.error('Export error', { 
+      error: error.message, 
+      stack: error.stack, 
+      caseId, 
+      userId: req.user?.id 
+    });
     
     // If headers already sent, can't send JSON error
     if (res.headersSent) {
@@ -486,7 +505,7 @@ router.post('/case/:caseId/preview', auth, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Export preview error:', error);
+    logger.error('Export preview error', { error: error.message, caseId, userId: req.user?.id });
     return res.status(500).json({ error: 'Failed to generate export preview' });
   }
 });

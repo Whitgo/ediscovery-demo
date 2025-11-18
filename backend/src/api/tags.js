@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router({ mergeParams: true });
 const auth = require('../middleware/auth');
+const logger = require('../utils/logger');
 
 // Legal document categories
 const LEGAL_CATEGORIES = [
@@ -85,14 +86,14 @@ router.get('/case/:caseId/tags', auth, async (req, res) => {
             });
           }
         } catch (parseError) {
-          console.error(`Failed to parse tags for document ${doc.id}:`, parseError);
+          logger.error('Failed to parse tags for document', { error: parseError.message, stack: parseError.stack, documentId: doc.id, caseId: req.params.caseId });
         }
       }
     });
     
     res.json({ tags: Array.from(allTags).sort() });
   } catch (e) {
-    console.error('Error fetching tags:', e);
+    logger.error('Error fetching tags', { error: e.message, stack: e.stack, caseId: req.params.caseId, userId: req.user?.id });
     res.status(500).json({ 
       error: 'Failed to retrieve tags', 
       details: process.env.NODE_ENV === 'development' ? e.message : undefined 
@@ -133,7 +134,7 @@ router.get('/case/:caseId/witnesses', auth, async (req, res) => {
         .sort() 
     });
   } catch (e) {
-    console.error('Error fetching witnesses:', e);
+    logger.error('Error fetching witnesses', { error: e.message, stack: e.stack, caseId: req.params.caseId, userId: req.user?.id });
     res.status(500).json({ 
       error: 'Failed to retrieve witnesses', 
       details: process.env.NODE_ENV === 'development' ? e.message : undefined 
@@ -288,7 +289,7 @@ router.patch('/case/:caseId/documents/:docId/metadata', auth, async (req, res) =
       document: updated
     });
   } catch (e) {
-    console.error('Error updating document metadata:', e);
+    logger.error('Error updating document metadata', { error: e.message, stack: e.stack, docId: req.params.docId, caseId: req.params.caseId, userId: req.user?.id });
     res.status(500).json({ 
       error: 'Failed to update document metadata', 
       details: process.env.NODE_ENV === 'development' ? e.message : undefined 
@@ -402,7 +403,7 @@ router.patch('/case/:caseId/documents/bulk/metadata', auth, async (req, res) => 
       updated_count: updated
     });
   } catch (e) {
-    console.error('Error bulk updating metadata:', e);
+    logger.error('Error bulk updating metadata', { error: e.message, stack: e.stack, documentIds: req.body.document_ids, caseId: req.params.caseId, userId: req.user?.id });
     res.status(500).json({ 
       error: 'Failed to update document metadata', 
       details: process.env.NODE_ENV === 'development' ? e.message : undefined 
@@ -589,7 +590,7 @@ router.post('/case/:caseId/documents/search', auth, async (req, res) => {
       }
     });
   } catch (e) {
-    console.error('Error searching documents:', e);
+    logger.error('Error searching documents', { error: e.message, stack: e.stack, caseId: req.params.caseId, searchParams: req.body, userId: req.user?.id });
     res.status(500).json({ 
       error: 'Failed to search documents', 
       details: process.env.NODE_ENV === 'development' ? e.message : undefined 

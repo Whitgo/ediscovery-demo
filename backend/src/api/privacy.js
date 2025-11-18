@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const { requireRole } = require('../middleware/rbac');
+const logger = require('../utils/logger');
 
 // GDPR Art. 15 / CCPA § 1798.110 - Right to Access
 // Export all user data in machine-readable format
@@ -152,7 +153,7 @@ router.get('/export', auth, async (req, res) => {
     res.json(exportData);
 
   } catch (err) {
-    console.error('Data export error:', err);
+    logger.error('Data export error', { error: err.message, stack: err.stack, userId: req.user?.id });
     res.status(500).json({ error: 'Failed to export user data', details: err.message });
   }
 });
@@ -209,7 +210,7 @@ router.post('/delete-request', auth, async (req, res) => {
     });
 
   } catch (err) {
-    console.error('Deletion request error:', err);
+    logger.error('Deletion request error', { error: err.message, stack: err.stack, userId: req.user?.id });
     res.status(500).json({ error: 'Failed to submit deletion request', details: err.message });
   }
 });
@@ -439,7 +440,7 @@ router.delete('/admin/requests/:requestId/execute', auth, requireRole('admin', '
     });
 
   } catch (err) {
-    console.error('Deletion execution error:', err);
+    logger.error('Deletion execution error', { error: err.message, stack: err.stack, requestId: req.params.requestId, userId: req.user?.id });
     res.status(500).json({ error: 'Failed to execute deletion', details: err.message });
   }
 });

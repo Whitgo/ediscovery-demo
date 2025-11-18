@@ -2,6 +2,7 @@ const multer = require('multer');
 const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
+const logger = require('../utils/logger');
 const { encryptFile, isEncryptionEnabled } = require('../utils/encryption');
 
 // Allowed file types for legal documents
@@ -80,7 +81,7 @@ async function encryptUploadedFile(req, res, next) {
 
   // Skip encryption if not enabled
   if (!isEncryptionEnabled()) {
-    console.log('Encryption not enabled - storing file unencrypted');
+    logger.debug('Encryption not enabled - storing file unencrypted');
     return next();
   }
 
@@ -101,10 +102,10 @@ async function encryptUploadedFile(req, res, next) {
     req.encryptionMetadata = encryptionMetadata;
     req.fileEncrypted = true;
 
-    console.log(`File encrypted: ${req.hashedFilename}`);
+    logger.info('File encrypted successfully', { filename: req.hashedFilename });
     next();
   } catch (error) {
-    console.error('File encryption error:', error);
+    logger.error('File encryption error', { error: error.message, filename: req.file?.originalname });
     
     // Clean up files on error
     if (req.file && req.file.path && fs.existsSync(req.file.path)) {

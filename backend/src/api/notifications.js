@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const { requireRole } = require('../middleware/rbac');
+const logger = require('../utils/logger');
 
 // Get user's notifications (users and managers only)
 router.get('/', auth, requireRole('admin', 'manager', 'user'), async (req, res) => {
@@ -183,7 +184,7 @@ async function createNotification(knex, { userId, type, title, message, caseId, 
       created_at: knex.fn.now()
     });
   } catch (e) {
-    console.error('Failed to create notification:', e);
+    logger.error('Failed to create notification', { error: e.message, stack: e.stack, userId, type, caseId, documentId });
   }
 }
 
@@ -253,7 +254,7 @@ async function notifyUsersInCase(knex, caseId, notification) {
       await knex('notifications').insert(notifications);
     }
   } catch (e) {
-    console.error('Failed to notify users:', e);
+    logger.error('Failed to notify users', { error: e.message, stack: e.stack, caseId, notificationType: notification.type });
   }
 }
 

@@ -4,6 +4,7 @@
  */
 
 const cron = require('node-cron');
+const logger = require('../utils/logger');
 const { performBackup, getBackupStats } = require('../utils/backup');
 
 // Run backup daily at 2:00 AM
@@ -13,32 +14,32 @@ const BACKUP_SCHEDULE = '0 2 * * *';
  * Start the backup scheduler
  */
 function startBackupScheduler() {
-  console.log('📅 Backup scheduler started - Daily backups at 2:00 AM');
+  logger.info('Backup scheduler started - Daily backups at 2:00 AM');
   
   // Schedule daily backups
   const task = cron.schedule(BACKUP_SCHEDULE, async () => {
-    console.log('\n⏰ Scheduled backup triggered...');
+    logger.info('Scheduled backup triggered');
     
     try {
       const result = await performBackup();
       
       if (result.success) {
-        console.log('✅ Scheduled backup completed successfully');
+        logger.info('Scheduled backup completed successfully');
         
         // Log backup statistics
         const stats = await getBackupStats();
-        console.log(`📊 Backup stats: ${stats.total_backups} backups, ${stats.total_size_mb} MB total`);
+        logger.info('Backup stats', { totalBackups: stats.total_backups, totalSizeMB: stats.total_size_mb });
       } else {
-        console.error('❌ Scheduled backup failed:', result.error);
+        logger.error('Scheduled backup failed', { error: result.error });
       }
       
     } catch (error) {
-      console.error('❌ Scheduled backup error:', error.message);
+      logger.error('Scheduled backup error', { error: error.message });
     }
   });
   
   // Log next scheduled run
-  console.log('📅 Next backup scheduled for: 2:00 AM');
+  logger.info('Next backup scheduled for: 2:00 AM');
   
   return task;
 }
@@ -47,21 +48,21 @@ function startBackupScheduler() {
  * Run backup immediately (manual trigger)
  */
 async function runManualBackup() {
-  console.log('🔄 Manual backup triggered...');
+  logger.info('Manual backup triggered');
   
   try {
     const result = await performBackup();
     
     if (result.success) {
-      console.log('✅ Manual backup completed successfully');
+      logger.info('Manual backup completed successfully');
       return result;
     } else {
-      console.error('❌ Manual backup failed:', result.error);
+      logger.error('Manual backup failed', { error: result.error });
       throw new Error(result.error);
     }
     
   } catch (error) {
-    console.error('❌ Manual backup error:', error.message);
+    logger.error('Manual backup error', { error: error.message });
     throw error;
   }
 }

@@ -4,6 +4,7 @@ const https = require('https');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const logger = require('./utils/logger');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -174,7 +175,7 @@ app.use((req, res, next) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error('API error:', err.stack || err);
+  logger.logError(err, { url: req.url, method: req.method, userId: req.user?.id });
   res.status(500).json({ error: 'Internal server error', details: err.message });
 });
 
@@ -190,21 +191,21 @@ try {
     key: fs.readFileSync(path.join(sslPath, 'key.pem')),
     cert: fs.readFileSync(path.join(sslPath, 'cert.pem'))
   };
-  console.log('✅ SSL certificates loaded successfully');
+  logger.info('SSL certificates loaded successfully');
 } catch (err) {
-  console.warn('⚠️  SSL certificates not found, HTTPS will not be available');
-  console.warn('   Generate certificates with: openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes');
+  logger.warn('SSL certificates not found, HTTPS will not be available');
+  logger.warn('Generate certificates with: openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes');
 }
 
 // Start HTTPS server if certificates are available
 if (httpsOptions) {
   const httpsServer = https.createServer(httpsOptions, app);
   httpsServer.listen(HTTPS_PORT, () => {
-    console.log(`🔒 eDiscovery API (HTTPS) listening on port ${HTTPS_PORT}`);
+    logger.info(`eDiscovery API (HTTPS) listening on port ${HTTPS_PORT}`);
     startRetentionJob(knex);
-    console.log('✅ Data retention cleanup job started');
+    logger.info('Data retention cleanup job started');
     startBackupScheduler();
-    console.log('✅ Automated backup scheduler started');
+    logger.info('Automated backup scheduler started');
   });
   
   // HTTP server that redirects to HTTPS
@@ -214,16 +215,16 @@ if (httpsOptions) {
   });
   
   http.createServer(httpApp).listen(PORT, () => {
-    console.log(`⚡ HTTP server on port ${PORT} redirecting to HTTPS`);
+    logger.info(`HTTP server on port ${PORT} redirecting to HTTPS`);
   });
 } else {
   // Fallback to HTTP only if no certificates
   app.listen(PORT, () => {
-    console.log(`⚠️  eDiscovery API (HTTP only) listening on port ${PORT}`);
-    console.log(`   WARNING: Running without HTTPS - not secure for production!`);
+    logger.warn(`eDiscovery API (HTTP only) listening on port ${PORT}`);
+    logger.warn('WARNING: Running without HTTPS - not secure for production!');
     startRetentionJob(knex);
-    console.log('✅ Data retention cleanup job started');
+    logger.info('Data retention cleanup job started');
     startBackupScheduler();
-    console.log('✅ Automated backup scheduler started');
+    logger.info('Automated backup scheduler started');
   });
 }

@@ -4,6 +4,7 @@
  */
 
 const cron = require('node-cron');
+const logger = require('../utils/logger');
 const { runRetentionCleanup } = require('../utils/dataRetention');
 
 let cleanupJob = null;
@@ -14,40 +15,41 @@ let cleanupJob = null;
  */
 function startRetentionJob(knex) {
   if (cleanupJob) {
-    console.log('⚠️  Retention cleanup job already running');
+    logger.warn('Retention cleanup job already running');
     return;
   }
   
   // Schedule: Every day at 2:00 AM
   // Format: minute hour day month weekday
   cleanupJob = cron.schedule('0 2 * * *', async () => {
-    console.log('🗑️  Starting automatic data retention cleanup...');
+    logger.info('Starting automatic data retention cleanup');
     
     try {
       const results = await runRetentionCleanup(knex);
       
-      console.log('✅ Data retention cleanup completed:');
-      console.log(`   - Cases checked: ${results.total_cases_checked}`);
-      console.log(`   - Cases deleted: ${results.cases_deleted.length}`);
-      console.log(`   - Errors: ${results.errors.length}`);
+      logger.info('Data retention cleanup completed', {
+        casesChecked: results.total_cases_checked,
+        casesDeleted: results.cases_deleted.length,
+        errors: results.errors.length
+      });
       
       if (results.cases_deleted.length > 0) {
-        console.log('   Deleted cases:', results.cases_deleted.map(c => c.case_number).join(', '));
+        logger.info('Deleted cases', { caseNumbers: results.cases_deleted.map(c => c.case_number) });
       }
       
       if (results.errors.length > 0) {
-        console.error('   ⚠️  Errors during cleanup:', results.errors);
+        logger.error('Errors during cleanup', { errors: results.errors });
       }
       
     } catch (err) {
-      console.error('❌ Error running retention cleanup:', err);
+      logger.error('Error running retention cleanup', { error: err.message, stack: err.stack });
     }
   }, {
     scheduled: true,
     timezone: "UTC"
   });
   
-  console.log('✅ Data retention cleanup job started (runs daily at 2:00 AM UTC)');
+  logger.info('Data retention cleanup job started (runs daily at 2:00 AM UTC)');
 }
 
 /**
@@ -57,7 +59,7 @@ function stopRetentionJob() {
   if (cleanupJob) {
     cleanupJob.stop();
     cleanupJob = null;
-    console.log('🛑 Data retention cleanup job stopped');
+    logger.info('Data retention cleanup job stopped');
   }
 }
 

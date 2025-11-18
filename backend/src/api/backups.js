@@ -5,6 +5,7 @@
 
 const express = require('express');
 const router = express.Router();
+const logger = require('../utils/logger');
 const authenticate = require('../middleware/auth');
 const { requireRole } = require('../middleware/rbac');
 const { performBackup, restoreBackup, listBackups, getBackupStats } = require('../utils/backup');
@@ -20,7 +21,7 @@ router.get('/stats', authenticate, requireRole('admin'), async (req, res) => {
     const stats = await getBackupStats();
     res.json(stats);
   } catch (error) {
-    console.error('Error fetching backup stats:', error);
+    logger.error('Error fetching backup stats', { error: error.message, userId: req.user?.id });
     res.status(500).json({ error: 'Failed to fetch backup statistics' });
   }
 });
@@ -34,7 +35,7 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
     const backups = await listBackups();
     res.json({ backups });
   } catch (error) {
-    console.error('Error listing backups:', error);
+    logger.error('Error listing backups', { error: error.message, userId: req.user?.id });
     res.status(500).json({ error: 'Failed to list backups' });
   }
 });
@@ -45,7 +46,7 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
  */
 router.post('/', authenticate, requireRole('admin'), async (req, res) => {
   try {
-    console.log(`📝 Manual backup requested by user ${req.user.id}`);
+    logger.logAudit('manual_backup_requested', req.user.id, { timestamp: new Date() });
     
     const result = await runManualBackup();
     
@@ -62,7 +63,7 @@ router.post('/', authenticate, requireRole('admin'), async (req, res) => {
     }
     
   } catch (error) {
-    console.error('Error creating backup:', error);
+    logger.error('Error creating backup', { error: error.message, userId: req.user.id });
     res.status(500).json({ error: 'Failed to create backup' });
   }
 });
@@ -75,7 +76,7 @@ router.post('/restore', authenticate, requireRole('admin'), async (req, res) => 
   try {
     const { backup_file } = req.body;
     
-    console.log(`⚠️  Database restore requested by user ${req.user.id}`);
+    logger.logSecurity('database_restore_requested', { userId: req.user.id, backupFile: backup_file });
     
     const result = await restoreBackup(backup_file);
     
@@ -92,7 +93,7 @@ router.post('/restore', authenticate, requireRole('admin'), async (req, res) => 
     }
     
   } catch (error) {
-    console.error('Error restoring backup:', error);
+    logger.error('Error restoring backup', { error: error.message, userId: req.user.id });
     res.status(500).json({ error: 'Failed to restore backup' });
   }
 });
@@ -115,7 +116,7 @@ router.get('/download/:filename', authenticate, requireRole('admin'), async (req
     res.download(backup.filepath, filename);
     
   } catch (error) {
-    console.error('Error downloading backup:', error);
+    logger.error('Error downloading backup', { error: error.message, userId: req.user?.id });
     res.status(500).json({ error: 'Failed to download backup' });
   }
 });
@@ -129,7 +130,7 @@ router.get('/test-email', authenticate, requireRole('admin'), async (req, res) =
     const result = await testEmailConfig();
     res.json(result);
   } catch (error) {
-    console.error('Error testing email config:', error);
+    logger.error('Error testing email config', { error: error.message, userId: req.user?.id });
     res.status(500).json({ error: 'Failed to test email configuration' });
   }
 });
