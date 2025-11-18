@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const { validationRules } = require('../middleware/validate');
 const { detectBruteForce } = require('../utils/incidentDetection');
+const logger = require('../utils/logger');
 
 // Helper to log failed login attempts
 async function logFailedLogin(knex, email, ip, userAgent) {
@@ -20,7 +21,7 @@ async function logFailedLogin(knex, email, ip, userAgent) {
       timestamp: knex.fn.now()
     });
   } catch (err) {
-    logger.error('Failed to log failed login attempt', { error: err.message, username });
+    logger.error('Failed to log failed login attempt', { error: err.message, email });
   }
 }
 
