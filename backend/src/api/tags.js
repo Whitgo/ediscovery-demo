@@ -142,6 +142,122 @@ router.get('/case/:caseId/witnesses', auth, async (req, res) => {
   }
 });
 
+// Bulk update metadata for multiple documents
+// NOTE: This route MUST come before the single document update route
+// to prevent Express from matching "bulk" as a :docId parameter
+router.patch('/case/:caseId/documents/bulk/metadata', auth, async (req, res) => {
+  const knex = req.knex;
+  const { document_ids, metadata } = req.body;
+
+  // Validate caseId
+  if (!req.params.caseId || isNaN(req.params.caseId)) {
+    return res.status(400).json({ error: 'Invalid case ID provided' });
+  }
+
+  // Validate document_ids
+  if (!document_ids || !Array.isArray(document_ids) || document_ids.length === 0) {
+    return res.status(400).json({ 
+      error: 'document_ids array is required and must not be empty' 
+    });
+  }
+
+  if (document_ids.length > 100) {
+    return res.status(400).json({ 
+      error: 'Maximum 100 documents can be updated at once' 
+    });
+  }
+
+  // Validate all IDs are numbers
+  if (!document_ids.every(id => typeof id === 'number' || !isNaN(id))) {
+    return res.status(400).json({ error: 'All document IDs must be valid numbers' });
+  }
+
+  // Validate metadata object
+  if (!metadata || typeof metadata !== 'object') {
+    return res.status(400).json({ error: 'metadata object is required' });
+  }
+
+  try {
+    // Verify all documents exist and belong to the case
+    const existingDocs = await knex('documents')
+      .whereIn('id', document_ids)
+      .where({ case_id: req.params.caseId })
+      .select('id');
+    
+    if (existingDocs.length !== document_ids.length) {
+      return res.status(400).json({ 
+        error: 'Some documents not found or do not belong to this case',
+        found: existingDocs.length,
+        requested: document_ids.length
+      });
+    }
+
+    // Validate metadata fields
+    if (metadata.legal_category && !LEGAL_CATEGORIES.includes(metadata.legal_category)) {
+      return res.status(400).json({ 
+        error: 'Invalid legal category',
+        validOptions: LEGAL_CATEGORIES
+      });
+    }
+
+    if (metadata.evidence_type && !EVIDENCE_TYPES.includes(metadata.evidence_type)) {
+      return res.status(400).json({ 
+        error: 'Invalid evidence type',
+        validOptions: EVIDENCE_TYPES
+      });
+    }
+
+    const updateData = { updated_at: knex.fn.now() };
+    
+    if (metadata.case_number !== undefined) updateData.case_number = metadata.case_number || null;
+    if (metadata.witness_name !== undefined) updateData.witness_name = metadata.witness_name || null;
+    if (metadata.evidence_type !== undefined) updateData.evidence_type = metadata.evidence_type || null;
+    if (metadata.legal_category !== undefined) updateData.legal_category = metadata.legal_category || null;
+    
+    if (metadata.tags !== undefined) {
+      if (!Array.isArray(metadata.tags)) {
+        return res.status(400).json({ error: 'Tags must be an array' });
+      }
+      
+      const uniqueTags = [...new Set(
+        metadata.tags
+          .filter(tag => typeof tag === 'string')
+          .map(tag => tag.trim().toLowerCase())
+          .filter(tag => tag.length > 0 && tag.length <= 50)
+      )];
+      
+      if (uniqueTags.length > 50) {
+        return res.status(400).json({ error: 'Maximum 50 tags allowed' });
+      }
+      
+      updateData.tags = JSON.stringify(uniqueTags);
+    }
+
+    // Check if there's actually something to update
+    if (Object.keys(updateData).length === 1) {
+      return res.status(400).json({ 
+        error: 'No metadata fields provided to update' 
+      });
+    }
+
+    const updated = await knex('documents')
+      .whereIn('id', document_ids)
+      .where({ case_id: req.params.caseId })
+      .update(updateData);
+
+    res.json({
+      success: true,
+      updated_count: updated
+    });
+  } catch (e) {
+    logger.error('Error bulk updating metadata', { error: e.message, stack: e.stack, documentIds: req.body.document_ids, caseId: req.params.caseId, userId: req.user?.id });
+    res.status(500).json({ 
+      error: 'Failed to update document metadata', 
+      details: process.env.NODE_ENV === 'development' ? e.message : undefined 
+    });
+  }
+});
+
 // Update document metadata
 router.patch('/case/:caseId/documents/:docId/metadata', auth, async (req, res) => {
   const knex = req.knex;
@@ -290,120 +406,6 @@ router.patch('/case/:caseId/documents/:docId/metadata', auth, async (req, res) =
     });
   } catch (e) {
     logger.error('Error updating document metadata', { error: e.message, stack: e.stack, docId: req.params.docId, caseId: req.params.caseId, userId: req.user?.id });
-    res.status(500).json({ 
-      error: 'Failed to update document metadata', 
-      details: process.env.NODE_ENV === 'development' ? e.message : undefined 
-    });
-  }
-});
-
-// Bulk update metadata for multiple documents
-router.patch('/case/:caseId/documents/bulk/metadata', auth, async (req, res) => {
-  const knex = req.knex;
-  const { document_ids, metadata } = req.body;
-
-  // Validate caseId
-  if (!req.params.caseId || isNaN(req.params.caseId)) {
-    return res.status(400).json({ error: 'Invalid case ID provided' });
-  }
-
-  // Validate document_ids
-  if (!document_ids || !Array.isArray(document_ids) || document_ids.length === 0) {
-    return res.status(400).json({ 
-      error: 'document_ids array is required and must not be empty' 
-    });
-  }
-
-  if (document_ids.length > 100) {
-    return res.status(400).json({ 
-      error: 'Maximum 100 documents can be updated at once' 
-    });
-  }
-
-  // Validate all IDs are numbers
-  if (!document_ids.every(id => typeof id === 'number' || !isNaN(id))) {
-    return res.status(400).json({ error: 'All document IDs must be valid numbers' });
-  }
-
-  // Validate metadata object
-  if (!metadata || typeof metadata !== 'object') {
-    return res.status(400).json({ error: 'metadata object is required' });
-  }
-
-  try {
-    // Verify all documents exist and belong to the case
-    const existingDocs = await knex('documents')
-      .whereIn('id', document_ids)
-      .where({ case_id: req.params.caseId })
-      .select('id');
-    
-    if (existingDocs.length !== document_ids.length) {
-      return res.status(404).json({ 
-        error: 'Some documents not found or do not belong to this case',
-        found: existingDocs.length,
-        requested: document_ids.length
-      });
-    }
-
-    // Validate metadata fields
-    if (metadata.legal_category && !LEGAL_CATEGORIES.includes(metadata.legal_category)) {
-      return res.status(400).json({ 
-        error: 'Invalid legal category',
-        validOptions: LEGAL_CATEGORIES
-      });
-    }
-
-    if (metadata.evidence_type && !EVIDENCE_TYPES.includes(metadata.evidence_type)) {
-      return res.status(400).json({ 
-        error: 'Invalid evidence type',
-        validOptions: EVIDENCE_TYPES
-      });
-    }
-
-    const updateData = { updated_at: knex.fn.now() };
-    
-    if (metadata.case_number !== undefined) updateData.case_number = metadata.case_number || null;
-    if (metadata.witness_name !== undefined) updateData.witness_name = metadata.witness_name || null;
-    if (metadata.evidence_type !== undefined) updateData.evidence_type = metadata.evidence_type || null;
-    if (metadata.legal_category !== undefined) updateData.legal_category = metadata.legal_category || null;
-    
-    if (metadata.tags !== undefined) {
-      if (!Array.isArray(metadata.tags)) {
-        return res.status(400).json({ error: 'Tags must be an array' });
-      }
-      
-      const uniqueTags = [...new Set(
-        metadata.tags
-          .filter(tag => typeof tag === 'string')
-          .map(tag => tag.trim().toLowerCase())
-          .filter(tag => tag.length > 0 && tag.length <= 50)
-      )];
-      
-      if (uniqueTags.length > 50) {
-        return res.status(400).json({ error: 'Maximum 50 tags allowed' });
-      }
-      
-      updateData.tags = JSON.stringify(uniqueTags);
-    }
-
-    // Check if there's actually something to update
-    if (Object.keys(updateData).length === 1) {
-      return res.status(400).json({ 
-        error: 'No metadata fields provided to update' 
-      });
-    }
-
-    const updated = await knex('documents')
-      .whereIn('id', document_ids)
-      .where({ case_id: req.params.caseId })
-      .update(updateData);
-
-    res.json({
-      success: true,
-      updated_count: updated
-    });
-  } catch (e) {
-    logger.error('Error bulk updating metadata', { error: e.message, stack: e.stack, documentIds: req.body.document_ids, caseId: req.params.caseId, userId: req.user?.id });
     res.status(500).json({ 
       error: 'Failed to update document metadata', 
       details: process.env.NODE_ENV === 'development' ? e.message : undefined 
