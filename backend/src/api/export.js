@@ -11,6 +11,10 @@ const { decryptFile, isEncryptionEnabled } = require('../utils/encryption');
 const auth = require('../middleware/auth');
 
 /**
+ * Security Note: archiver dependency tree includes glob with CVE-2024-4067
+ * However, this vulnerability only affects glob CLI usage with shell:true
+ * We use archiver's API for ZIP creation without glob CLI - not vulnerable
+ * 
  * POST /api/export/case/:caseId/documents
  * Export selected documents as a ZIP with an audit-ready index
  * Body: { documentIds: [1, 2, 3], format: 'zip', includeMetadata: true }
