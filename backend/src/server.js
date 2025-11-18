@@ -28,6 +28,7 @@ const retentionRoutes = require('./api/retention');
 const privacyRoutes = require('./api/privacy');
 const incidentRoutes = require('./api/incidents');
 const backupRoutes = require('./api/backups');
+const securityRoutes = require('./api/security');
 const { startRetentionJob } = require('./jobs/retentionCleanup');
 const { startBackupScheduler } = require('./jobs/backupScheduler');
 
@@ -167,6 +168,7 @@ app.use('/api/retention', apiLimiter, retentionRoutes);
 app.use('/api/privacy', apiLimiter, privacyRoutes);
 app.use('/api/incidents', apiLimiter, incidentRoutes);
 app.use('/api/backups', apiLimiter, backupRoutes);
+app.use('/api/security', apiLimiter, securityRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 

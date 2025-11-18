@@ -8,6 +8,7 @@ import UserManagement from "./components/UserManagement";
 import NotificationsPanel from "./components/NotificationsPanel";
 import NotificationPreferences from "./components/NotificationPreferences";
 import IncidentDashboard from "./components/IncidentDashboard";
+import SecurityDashboard from "./components/SecurityDashboard";
 import NotFound from "./components/NotFound";
 import { getToken, apiGet } from "./utils/api";
 import { hasRole, canAccess, ROLES } from "./utils/rbac";
@@ -162,6 +163,23 @@ function App() {
                   🚨 Incidents
                 </button>
               )}
+              {hasRole(user.role, ROLES.ADMIN, ROLES.MANAGER) && (
+                <button
+                  onClick={() => setView('security')}
+                  style={{
+                    padding: '8px 16px',
+                    background: view === 'security' ? '#edf2f7' : 'transparent',
+                    color: view === 'security' ? '#2166e8' : '#4a5568',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontWeight: '600',
+                    fontSize: '0.9em'
+                  }}
+                >
+                  🔒 Security
+                </button>
+              )}
               {canAccess(user.role, 'read', 'notification') && (
                 <button
                   onClick={openNotificationSettings}
@@ -261,10 +279,13 @@ function App() {
           {view === "incidents" && canAccess(user.role, 'read', 'incident') && (
             <IncidentDashboard />
           )}
+          {view === "security" && hasRole(user.role, ROLES.ADMIN, ROLES.MANAGER) && (
+            <SecurityDashboard />
+          )}
           {view === "notification-settings" && canAccess(user.role, 'read', 'notification') && (
             <NotificationPreferences />
           )}
-          {!["dashboard", "case", "users", "incidents", "notification-settings"].includes(view) && (
+          {!["dashboard", "case", "users", "incidents", "security", "notification-settings"].includes(view) && (
             <NotFound />
           )}
         </div>
