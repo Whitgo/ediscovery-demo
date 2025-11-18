@@ -54,14 +54,14 @@ router.post('/case/:caseId/documents/:docId/view', auth, async (req, res) => {
     // Log to audit trail
     await knex('audit_logs').insert({
       case_id: req.params.caseId,
-      user_id: req.user.id,
+      user: req.user.name,
       action: 'view_document',
       details: JSON.stringify({
         document_id: req.params.docId,
         document_name: doc.name,
         file_type: doc.file_type
       }),
-      created_at: knex.fn.now()
+      timestamp: knex.fn.now()
     });
     
     res.json({ success: true, message: 'Document view logged' });
