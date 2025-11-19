@@ -50,7 +50,7 @@ export default function FileUploadModal({ caseId, onClose, onSuccess }) {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/tags/metadata/options`,
+        `/api/tags/metadata/options`,
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
       const data = await response.json();
@@ -65,11 +65,11 @@ export default function FileUploadModal({ caseId, onClose, onSuccess }) {
       const token = localStorage.getItem('token');
       const [tagsRes, witnessesRes] = await Promise.all([
         fetch(
-          `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/tags/case/${caseId}/tags`,
+          `/api/tags/case/${caseId}/tags`,
           { headers: { 'Authorization': `Bearer ${token}` } }
         ),
         fetch(
-          `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/tags/case/${caseId}/witnesses`,
+          `/api/tags/case/${caseId}/witnesses`,
           { headers: { 'Authorization': `Bearer ${token}` } }
         )
       ]);
@@ -197,7 +197,7 @@ export default function FileUploadModal({ caseId, onClose, onSuccess }) {
         setUploading(false);
       });
 
-      xhr.open('POST', `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/documents/case/${caseId}/documents/upload`);
+      xhr.open('POST', `/api/documents/case/${caseId}/documents/upload`);
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
       xhr.send(formData);
     } catch (err) {

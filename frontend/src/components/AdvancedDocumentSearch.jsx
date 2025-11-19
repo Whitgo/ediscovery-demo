@@ -33,7 +33,7 @@ export default function AdvancedDocumentSearch({ caseId, onResults, onError }) {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/tags/metadata/options`,
+        `/api/tags/metadata/options`,
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
       
@@ -88,7 +88,7 @@ export default function AdvancedDocumentSearch({ caseId, onResults, onError }) {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/tags/case/${caseId}/documents/search`,
+        `/api/tags/case/${caseId}/documents/search`,
         {
           method: 'POST',
           headers: {

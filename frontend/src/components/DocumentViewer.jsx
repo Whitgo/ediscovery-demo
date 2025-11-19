@@ -23,7 +23,7 @@ export default function DocumentViewer({ caseId, documentId, documentName, onClo
     try {
       const token = localStorage.getItem('token');
       await fetch(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/documents/case/${caseId}/documents/${documentId}/view`,
+        `/api/documents/case/${caseId}/documents/${documentId}/view`,
         {
           method: 'POST',
           headers: {
@@ -47,7 +47,7 @@ export default function DocumentViewer({ caseId, documentId, documentName, onClo
       
       // Fetch document metadata first
       const metadataResponse = await fetch(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/documents/case/${caseId}/documents/${documentId}`,
+        `/api/documents/case/${caseId}/documents/${documentId}`,
         {
           headers: { 'Authorization': `Bearer ${token}` }
         }
@@ -63,7 +63,7 @@ export default function DocumentViewer({ caseId, documentId, documentName, onClo
 
       // Fetch document file
       const fileResponse = await fetch(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/documents/case/${caseId}/documents/${documentId}/download`,
+        `/api/documents/case/${caseId}/documents/${documentId}/download`,
         {
           headers: { 'Authorization': `Bearer ${token}` }
         }

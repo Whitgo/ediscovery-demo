@@ -35,7 +35,7 @@ export default function ExportModal({ caseId, documents, onClose }) {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/export/case/${caseId}/preview`,
+        `/api/export/case/${caseId}/preview`,
         {
           method: 'POST',
           headers: {
@@ -71,7 +71,7 @@ export default function ExportModal({ caseId, documents, onClose }) {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/export/case/${caseId}/documents`,
+        `/api/export/case/${caseId}/documents`,
         {
           method: 'POST',
           headers: {

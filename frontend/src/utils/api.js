@@ -1,4 +1,8 @@
-const API_URL = process.env.REACT_APP_API_URL || "https://localhost:4443/api";
+const API_URL = process.env.REACT_APP_API_URL || "/api";
+
+export function getApiUrl() {
+  return API_URL;
+}
 
 export function setToken(token) {
   localStorage.setItem("token", token);

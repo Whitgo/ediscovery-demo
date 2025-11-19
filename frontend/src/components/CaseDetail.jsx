@@ -370,10 +370,10 @@ export default function CaseDetail({ caseId, onBack }) {
                         <span style={{ fontWeight: '600', color: '#2d3748' }}>Folder:</span> {doc.folder}
                       </div>
                     )}
-                    {doc.tags && JSON.parse(doc.tags).length > 0 && (
+                    {doc.tags && Array.isArray(doc.tags) && doc.tags.length > 0 && (
                       <div style={{ marginTop: '6px' }}>
                         <span style={{ fontWeight: '600', color: '#2d3748' }}>Tags:</span>{' '}
-                        {JSON.parse(doc.tags).map(tag => (
+                        {doc.tags.map(tag => (
                           <span 
                             key={tag} 
                             style={{
@@ -414,7 +414,7 @@ export default function CaseDetail({ caseId, onBack }) {
                             👁️ View
                           </button>
                           <a 
-                            href={`${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/documents/case/${caseId}/documents/${doc.id}/download`}
+                            href={`/api/documents/case/${caseId}/documents/${doc.id}/download`}
                             style={{
                               color: '#2166e8',
                               textDecoration: 'none',
@@ -493,7 +493,7 @@ export default function CaseDetail({ caseId, onBack }) {
                     witness_name: doc.witness_name || '',
                     evidence_type: doc.evidence_type || '',
                     legal_category: doc.legal_category || '',
-                    tags: doc.tags ? JSON.parse(doc.tags) : []
+                    tags: Array.isArray(doc.tags) ? doc.tags : (doc.tags ? JSON.parse(doc.tags) : [])
                   }}
                   onSave={(metadata) => handleMetadataSave(doc.id, metadata)}
                   onCancel={() => setEditingDocId(null)}

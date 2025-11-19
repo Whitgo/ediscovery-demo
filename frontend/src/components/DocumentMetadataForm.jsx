@@ -37,7 +37,7 @@ export default function DocumentMetadataForm({
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/tags/metadata/options`,
+        `/api/tags/metadata/options`,
         {
           headers: { 'Authorization': `Bearer ${token}` }
         }
@@ -54,11 +54,11 @@ export default function DocumentMetadataForm({
       const token = localStorage.getItem('token');
       const [tagsRes, witnessesRes] = await Promise.all([
         fetch(
-          `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/tags/case/${caseId}/tags`,
+          `/api/tags/case/${caseId}/tags`,
           { headers: { 'Authorization': `Bearer ${token}` } }
         ),
         fetch(
-          `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/tags/case/${caseId}/witnesses`,
+          `/api/tags/case/${caseId}/witnesses`,
           { headers: { 'Authorization': `Bearer ${token}` } }
         )
       ]);
@@ -104,7 +104,7 @@ export default function DocumentMetadataForm({
     try {
       const token = localStorage.getItem('token');
       const url = docId
-        ? `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/tags/case/${caseId}/documents/${docId}/metadata`
+        ? `/api/tags/case/${caseId}/documents/${docId}/metadata`
         : null;
 
       if (url) {
