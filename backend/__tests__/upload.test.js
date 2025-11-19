@@ -9,6 +9,15 @@ const path = require('path');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
 
+// Mock audit middleware to prevent real Knex connection
+jest.mock('../src/middleware/audit', () => jest.fn().mockResolvedValue(undefined));
+
+// Mock auth middleware before requiring the router
+jest.mock('../src/middleware/auth', () => (req, res, next) => {
+  // Auth is handled in setupApp, this mock just prevents the real auth from loading
+  next();
+});
+
 // Mock logger to prevent console output
 jest.mock('../src/utils/logger', () => ({
   info: jest.fn(),

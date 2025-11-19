@@ -10,35 +10,35 @@ exports.seed = async function(knex) {
       name: "Admin User",
       email: "admin@demo.com",
       role: "admin",
-      password_hash: "$2b$10$CwTycUXWue0Thq9StjUM0uJ8PCZUMga1pH4IY/eYPp1fT0TRdc5aO", // demo123
+      password_hash: "$2b$10$eGtcHI8MtmjzZKtsiL4Pme2M2AejF6yE1jyveiCI9NuT2Li/jZstu", // demo123
     },
     {
       id: 2,
       name: "Alice Manager",
       email: "alice@demo.com",
       role: "manager",
-      password_hash: "$2b$10$CwTycUXWue0Thq9StjUM0uJ8PCZUMga1pH4IY/eYPp1fT0TRdc5aO", // demo123
+      password_hash: "$2b$10$eGtcHI8MtmjzZKtsiL4Pme2M2AejF6yE1jyveiCI9NuT2Li/jZstu", // demo123
     },
     {
       id: 3,
       name: "Bob User",
       email: "bob@demo.com",
       role: "user",
-      password_hash: "$2b$10$CwTycUXWue0Thq9StjUM0uJ8PCZUMga1pH4IY/eYPp1fT0TRdc5aO",
+      password_hash: "$2b$10$eGtcHI8MtmjzZKtsiL4Pme2M2AejF6yE1jyveiCI9NuT2Li/jZstu", // demo123
     },
     {
       id: 4,
       name: "Sandra Support",
       email: "sandra@demo.com",
       role: "support",
-      password_hash: "$2b$10$CwTycUXWue0Thq9StjUM0uJ8PCZUMga1pH4IY/eYPp1fT0TRdc5aO",
+      password_hash: "$2b$10$eGtcHI8MtmjzZKtsiL4Pme2M2AejF6yE1jyveiCI9NuT2Li/jZstu", // demo123
     },
     {
       id: 5,
       name: "Victor Viewer",
       email: "victor@demo.com",
       role: "viewer",
-      password_hash: "$2b$10$CwTycUXWue0Thq9StjUM0uJ8PCZUMga1pH4IY/eYPp1fT0TRdc5aO",
+      password_hash: "$2b$10$eGtcHI8MtmjzZKtsiL4Pme2M2AejF6yE1jyveiCI9NuT2Li/jZstu", // demo123
     }
   ]);
 

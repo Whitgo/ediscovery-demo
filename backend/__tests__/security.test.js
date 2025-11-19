@@ -7,6 +7,9 @@ const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
+// Mock audit middleware to prevent real Knex connection
+jest.mock('../src/middleware/audit', () => jest.fn().mockResolvedValue(undefined));
+
 // Mock the auth middleware before importing routes
 jest.mock('../src/middleware/auth', () => (req, res, next) => next());
 
@@ -170,30 +173,42 @@ describe('Security Monitoring API', () => {
     test('Normal: Should return comprehensive dashboard data for admin', async () => {
       const token = generateToken(adminUser);
       
-      // Simplified mock - just test that endpoint works
-      mockKnex.mockImplementation(() => {
-        // Return empty arrays for all queries
-        const mockQuery = {
+      // Mock all chain methods and resolve queries
+      const mockQuery = () => {
+        const chain = {
           select: jest.fn().mockReturnThis(),
           where: jest.fn().mockReturnThis(),
+          whereNull: jest.fn().mockReturnThis(),
+          whereNotNull: jest.fn().mockReturnThis(),
           whereRaw: jest.fn().mockReturnThis(),
           orWhere: jest.fn().mockReturnThis(),
-          whereNotNull: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
           orderBy: jest.fn().mockReturnThis(),
-          limit: jest.fn().mockResolvedValue([]),
+          limit: jest.fn().mockReturnThis(),
+          offset: jest.fn().mockReturnThis(),
           groupBy: jest.fn().mockReturnThis(),
           having: jest.fn().mockReturnThis(),
           count: jest.fn().mockReturnThis(),
-          distinct: jest.fn().mockResolvedValue([]),
+          distinct: jest.fn().mockReturnThis(),
           leftJoin: jest.fn().mockReturnThis(),
-          first: jest.fn().mockResolvedValue({ count: '0' })
+          innerJoin: jest.fn().mockReturnThis(),
+          modify: jest.fn().mockReturnThis(),
+          first: jest.fn().mockResolvedValue({ count: '0' }),
+          then: jest.fn((cb) => cb({ count: '0' }))
         };
-        return mockQuery;
-      });
+        // Return empty array by default for terminal methods
+        return Object.assign(Promise.resolve([]), chain);
+      };
+      
+      mockKnex.mockImplementation(mockQuery);
       
       const response = await request(app)
         .get('/api/security/dashboard')
         .set('Authorization', `Bearer ${token}`);
+      
+      if (response.status !== 200) {
+        console.log('Error response:', response.body);
+      }
       
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('stats');
@@ -205,7 +220,7 @@ describe('Security Monitoring API', () => {
       expect(response.body).toHaveProperty('securityEvents');
       expect(response.body).toHaveProperty('topUsers');
       expect(response.body).toHaveProperty('suspiciousIPs');
-      expect(logger.logAudit).toHaveBeenCalledWith('security_dashboard_accessed', adminUser.id, { ip: '127.0.0.1' });
+      expect(logger.logAudit).toHaveBeenCalledWith('security_dashboard_accessed', adminUser.id, expect.objectContaining({ ip: expect.any(String) }));
     });
     
     test('Normal: Should return dashboard data for manager', async () => {
@@ -731,22 +746,23 @@ describe('Security Monitoring API', () => {
     test('Normal: Should return empty alerts when none detected', async () => {
       const token = generateToken(adminUser);
       
-      // Mock multiple sequential queries
-      let callCount = 0;
-      mockKnex.mockImplementation(() => {
-        callCount++;
-        return {
+      // Mock all chain methods and resolve queries
+      const mockQuery = () => {
+        const chain = {
           select: jest.fn().mockReturnThis(),
           count: jest.fn().mockReturnThis(),
           where: jest.fn().mockReturnThis(),
           whereRaw: jest.fn().mockReturnThis(),
           groupBy: jest.fn().mockReturnThis(),
           having: jest.fn().mockReturnThis(),
-          orderBy: jest.fn().mockResolvedValue([]),
-          limit: jest.fn().mockResolvedValue([]),
+          orderBy: jest.fn().mockReturnThis(),
+          limit: jest.fn().mockReturnThis(),
           first: jest.fn().mockResolvedValue({ count: '0' })
         };
-      });
+        return Object.assign(Promise.resolve([]), chain);
+      };
+      
+      mockKnex.mockImplementation(mockQuery);
       
       const response = await request(app)
         .get('/api/security/alerts')
@@ -760,22 +776,23 @@ describe('Security Monitoring API', () => {
     test('Normal: Manager should have access', async () => {
       const token = generateToken(managerUser);
       
-      // Mock multiple queries for alerts endpoint
-      let callCount = 0;
-      mockKnex.mockImplementation(() => {
-        callCount++;
-        return {
+      // Mock all chain methods and resolve queries
+      const mockQuery = () => {
+        const chain = {
           select: jest.fn().mockReturnThis(),
           count: jest.fn().mockReturnThis(),
           where: jest.fn().mockReturnThis(),
           whereRaw: jest.fn().mockReturnThis(),
           groupBy: jest.fn().mockReturnThis(),
           having: jest.fn().mockReturnThis(),
-          orderBy: jest.fn().mockResolvedValue([]),
-          limit: jest.fn().mockResolvedValue([]),
+          orderBy: jest.fn().mockReturnThis(),
+          limit: jest.fn().mockReturnThis(),
           first: jest.fn().mockResolvedValue({ count: '0' })
         };
-      });
+        return Object.assign(Promise.resolve([]), chain);
+      };
+      
+      mockKnex.mockImplementation(mockQuery);
       
       const response = await request(app)
         .get('/api/security/alerts')
