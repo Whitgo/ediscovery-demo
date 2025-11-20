@@ -26,7 +26,7 @@ export default function PrivacyCenter({ user }) {
     setMessage({ type: '', text: '' });
 
     try {
-      const response = await fetch('https://localhost:4443/api/privacy/export', {
+      const response = await fetch('/api/privacy/export', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
