@@ -127,7 +127,7 @@ const mockFailedLogin = {
 
 const mockSuccessfulLogin = {
   id: 2,
-  action: 'login',
+  action: 'successful_login',
   user: 3,
   timestamp: new Date('2025-11-18T11:00:00Z'),
   details: JSON.stringify({ ip: '192.168.1.101' }),
@@ -448,7 +448,7 @@ describe('Security Monitoring API', () => {
       }));
       
       const response = await request(app)
-        .get('/api/security/audit-logs?action=login')
+        .get('/api/security/audit-logs?action=successful_login')
         .set('Authorization', `Bearer ${token}`);
       
       expect(response.status).toBe(200);

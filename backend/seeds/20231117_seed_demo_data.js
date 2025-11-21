@@ -203,7 +203,7 @@ exports.seed = async function(knex) {
   await knex('audit_logs').insert([
     {
       case_id: 1,
-      user: "Alice Manager",
+      user: 2, // Alice Manager id
       action: "create",
       object_type: "case",
       object_id: 1,
@@ -212,7 +212,7 @@ exports.seed = async function(knex) {
     },
     {
       case_id: 1,
-      user: "Alice Manager",
+      user: 2, // Alice Manager id
       action: "create",
       object_type: "document",
       object_id: 1,
@@ -221,7 +221,7 @@ exports.seed = async function(knex) {
     },
     {
       case_id: 2,
-      user: "Sandra Support",
+      user: 4, // Sandra Support id
       action: "create",
       object_type: "document",
       object_id: 3,

@@ -37,7 +37,7 @@ router.get('/dashboard', auth, requireRole('admin', 'manager'), async (req, res)
 
     // Get recent successful logins (last 50)
     const recentLogins = await knex('audit_logs')
-      .where('action', 'login')
+      .where('action', 'successful_login')
       .orderBy('timestamp', 'desc')
       .limit(50);
 
@@ -45,12 +45,12 @@ router.get('/dashboard', auth, requireRole('admin', 'manager'), async (req, res)
     const activeSessions = await knex('audit_logs')
       .select('user')
       .distinct()
-      .where('action', 'login')
+      .where('action', 'successful_login')
       .where('timestamp', '>', knex.raw("NOW() - INTERVAL '1 hour'"));
 
     // Get recent audit activity (last 100 entries)
     const recentActivity = await knex('audit_logs')
-      .select('audit_logs.*', 'users.username', 'users.email')
+      .select('audit_logs.*', 'users.name', 'users.email')
       .leftJoin('users', 'audit_logs.user', 'users.id')
       .orderBy('audit_logs.timestamp', 'desc')
       .limit(100);
@@ -61,8 +61,8 @@ router.get('/dashboard', auth, requireRole('admin', 'manager'), async (req, res)
         this.where('action', 'like', '%unauthorized%')
           .orWhere('action', 'like', '%denied%')
           .orWhere('action', 'like', '%forbidden%')
-          .orWhere('details', 'like', '%403%')
-          .orWhere('details', 'like', '%unauthorized%');
+          .orWhereRaw("details::text like '%403%'")
+          .orWhereRaw("details::text like '%unauthorized%'");
       })
       .where('timestamp', '>', knex.raw("NOW() - INTERVAL '7 days'"))
       .orderBy('timestamp', 'desc')
@@ -70,12 +70,12 @@ router.get('/dashboard', auth, requireRole('admin', 'manager'), async (req, res)
 
     // Get top users by activity (last 7 days)
     const topUsers = await knex('audit_logs')
-      .select('user', 'users.username', 'users.email', 'users.role')
+      .select('user', 'users.name', 'users.email', 'users.role')
       .leftJoin('users', 'audit_logs.user', 'users.id')
       .count('* as activity_count')
       .where('audit_logs.timestamp', '>', knex.raw("NOW() - INTERVAL '7 days'"))
       .whereNotNull('user')
-      .groupBy('user', 'users.username', 'users.email', 'users.role')
+      .groupBy('user', 'users.name', 'users.email', 'users.role')
       .orderBy('activity_count', 'desc')
       .limit(10);
 
@@ -185,7 +185,7 @@ router.get('/audit-logs', auth, requireRole('admin', 'manager', 'support'), asyn
   
   try {
     let query = knex('audit_logs')
-      .select('audit_logs.*', 'users.username', 'users.email', 'users.role')
+      .select('audit_logs.*', 'users.name', 'users.email', 'users.role')
       .leftJoin('users', 'audit_logs.user', 'users.id')
       .where('audit_logs.timestamp', '>', knex.raw(`NOW() - INTERVAL '${parseInt(hours)} hours'`));
 
@@ -236,7 +236,7 @@ router.get('/active-sessions', auth, requireRole('admin', 'manager'), async (req
     const activeSessions = await knex('audit_logs')
       .select(
         'user',
-        'users.username',
+        'users.name',
         'users.email',
         'users.role',
         knex.raw('MAX(audit_logs.timestamp) as last_activity')
@@ -245,7 +245,7 @@ router.get('/active-sessions', auth, requireRole('admin', 'manager'), async (req
       .where('audit_logs.action', 'login')
       .where('audit_logs.timestamp', '>', knex.raw("NOW() - INTERVAL '1 hour'"))
       .whereNotNull('user')
-      .groupBy('user', 'users.username', 'users.email', 'users.role')
+      .groupBy('user', 'users.name', 'users.email', 'users.role')
       .orderBy('last_activity', 'desc');
 
     res.json({ sessions: activeSessions, count: activeSessions.length });

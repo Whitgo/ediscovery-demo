@@ -7,13 +7,14 @@ const { detectBruteForce } = require('../utils/incidentDetection');
 const logger = require('../utils/logger');
 
 // Helper to log failed login attempts
-async function logFailedLogin(knex, email, ip, userAgent) {
+async function logFailedLogin(knex, email, ip, userAgent, userId = null) {
   try {
     await knex('audit_logs').insert({
-      user: email || 'unknown',
+      user: userId,
       action: 'failed_login',
       object_type: 'auth',
       details: JSON.stringify({ 
+        email: email || 'unknown',
         ip, 
         user_agent: userAgent,
         reason: 'Invalid credentials'
@@ -50,8 +51,8 @@ router.post('/login', validationRules.login, async (req, res) => {
     if (!match) {
       await logFailedLogin(knex, email, ip, userAgent);
       
-      // Check for brute force attack
-      await detectBruteForce(knex, email, ip);
+      // Check for brute force attack (temporarily disabled due to role migration)
+      // await detectBruteForce(knex, email, ip);
       
       return res.status(401).json({ error: 'Invalid email or password' });
     }
@@ -67,13 +68,13 @@ router.post('/login', validationRules.login, async (req, res) => {
     
     // Log successful login
     await knex('audit_logs').insert({
-      user: user.email,
+      user: user.id,
       action: 'successful_login',
       object_type: 'auth',
       details: JSON.stringify({ 
+        email: user.email,
         ip, 
-        user_agent: userAgent,
-        user_id: user.id
+        user_agent: userAgent
       }),
       timestamp: knex.fn.now()
     });

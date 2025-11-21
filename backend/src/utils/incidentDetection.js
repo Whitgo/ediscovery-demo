@@ -27,11 +27,10 @@ async function detectBruteForce(knex, email, ip) {
   const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
   
   // Count failed attempts in last 5 minutes
+  console.log('[detectBruteForce] Using patched JSON details query for email', email);
   const failedAttempts = await knex('audit_logs')
-    .where({
-      action: 'failed_login',
-      user: email
-    })
+    .where('action', 'failed_login')
+    .whereRaw("details::text like ?", [`%\"email\":\"${email}\"%`])
     .where('timestamp', '>=', fiveMinutesAgo)
     .count('* as count');
   
