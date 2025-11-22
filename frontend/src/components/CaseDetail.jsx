@@ -29,6 +29,8 @@ export default function CaseDetail({ caseId, onBack }) {
   const [viewingDocId, setViewingDocId] = useState(null);
   const [viewingDocName, setViewingDocName] = useState("");
   const [showBatesExportModal, setShowBatesExportModal] = useState(false);
+  const [hoveredDocId, setHoveredDocId] = useState(null);
+  const [thumbnailPosition, setThumbnailPosition] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     async function load() {
@@ -349,7 +351,20 @@ export default function CaseDetail({ caseId, onBack }) {
               )}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: editingDocId === doc.id ? '12px' : '0', marginLeft: bulkEditMode ? '35px' : '0' }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ marginBottom: '8px' }}>
+                  <div 
+                    style={{ marginBottom: '8px', position: 'relative' }}
+                    onMouseEnter={(e) => {
+                      if (doc.stored_filename && doc.stored_filename.toLowerCase().endsWith('.pdf')) {
+                        setHoveredDocId(doc.id);
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setThumbnailPosition({ 
+                          x: rect.right + 10, 
+                          y: rect.top 
+                        });
+                      }
+                    }}
+                    onMouseLeave={() => setHoveredDocId(null)}
+                  >
                     <b style={{ fontSize: '1.05em', color: '#1a202c' }}>{doc.name}</b>
                   </div>
                   
@@ -616,6 +631,48 @@ export default function CaseDetail({ caseId, onBack }) {
           selectedDocuments={selectedDocs}
           onClose={() => setShowBatesExportModal(false)}
         />
+      )}
+
+      {hoveredDocId && (
+        <div
+          style={{
+            position: 'fixed',
+            left: `${thumbnailPosition.x}px`,
+            top: `${thumbnailPosition.y}px`,
+            zIndex: 10000,
+            background: '#fff',
+            border: '2px solid #2166e8',
+            borderRadius: '8px',
+            padding: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            pointerEvents: 'none'
+          }}
+        >
+          <img
+            src={`/api/documents/case/${caseId}/documents/${hoveredDocId}/thumbnail`}
+            alt="PDF Preview"
+            style={{
+              maxWidth: '200px',
+              maxHeight: '260px',
+              display: 'block'
+            }}
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.nextSibling.style.display = 'block';
+            }}
+          />
+          <div
+            style={{
+              display: 'none',
+              padding: '20px',
+              textAlign: 'center',
+              color: '#718096',
+              fontSize: '0.9em'
+            }}
+          >
+            Preview unavailable
+          </div>
+        </div>
       )}
 
       {viewingDocId && (

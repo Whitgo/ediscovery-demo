@@ -6,6 +6,7 @@ const audit = require('../middleware/audit');
 const { upload, encryptUploadedFile } = require('../middleware/upload');
 const { notifyUsersInCase } = require('./notifications');
 const { decryptFile, isEncryptionEnabled } = require('../utils/encryption');
+const { getCachedThumbnail } = require('../utils/pdfThumbnail');
 const path = require('path');
 const fs = require('fs');
 const logger = require('../utils/logger');
@@ -347,6 +348,66 @@ router.delete('/case/:caseId/documents/:docId', auth, async (req, res) => {
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// Get document thumbnail/preview
+router.get('/case/:caseId/documents/:docId/thumbnail', auth, async (req, res) => {
+  const knex = req.knex;
+  try {
+    const doc = await knex('documents')
+      .where({ id: req.params.docId, case_id: req.params.caseId })
+      .first();
+    
+    if (!doc) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    // Only generate thumbnails for PDF files
+    if (!doc.file_name || !doc.file_name.toLowerCase().endsWith('.pdf')) {
+      return res.status(400).json({ 
+        error: 'Thumbnail only available for PDF documents',
+        fileType: doc.file_type 
+      });
+    }
+
+    // Check if stored file exists
+    if (!doc.stored_filename) {
+      return res.status(404).json({ error: 'Document file not found' });
+    }
+
+    const filePath = path.join(__dirname, '../../uploads', doc.stored_filename);
+    
+    // Verify file exists
+    if (!fs.existsSync(filePath)) {
+      logger.error('Document file not found on disk', { 
+        docId: req.params.docId, 
+        storedFilename: doc.stored_filename 
+      });
+      return res.status(404).json({ error: 'Document file not found on disk' });
+    }
+
+    // Get or generate thumbnail
+    const cacheDir = path.join(__dirname, '../../temp/thumbnails');
+    const thumbnailData = await getCachedThumbnail(filePath, cacheDir, {
+      width: 200,
+      height: 260
+    });
+
+    // Return SVG preview
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+    res.send(thumbnailData.svgPreview);
+
+  } catch (e) {
+    logger.error('Thumbnail generation error', { 
+      error: e.message, 
+      stack: e.stack,
+      docId: req.params.docId, 
+      caseId: req.params.caseId, 
+      userId: req.user?.id 
+    });
+    res.status(500).json({ error: 'Failed to generate thumbnail' });
   }
 });
 
