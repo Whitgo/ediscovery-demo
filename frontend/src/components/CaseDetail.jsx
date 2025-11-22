@@ -8,6 +8,7 @@ import DocumentMetadataForm from "./DocumentMetadataForm";
 import AdvancedDocumentSearch from "./AdvancedDocumentSearch";
 import ExportModal from "./ExportModal";
 import DocumentViewer from "./DocumentViewer";
+import BatesExportModal from "./BatesExportModal";
 
 export default function CaseDetail({ caseId, onBack }) {
   const user = useUser();
@@ -27,6 +28,7 @@ export default function CaseDetail({ caseId, onBack }) {
   const [bulkEditMode, setBulkEditMode] = useState(false);
   const [viewingDocId, setViewingDocId] = useState(null);
   const [viewingDocName, setViewingDocName] = useState("");
+  const [showBatesExportModal, setShowBatesExportModal] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -180,6 +182,22 @@ export default function CaseDetail({ caseId, onBack }) {
                 disabled={docs.length === 0}
               >
                 📦 Export
+              </button>
+              <button
+                style={{
+                  padding: '8px 16px',
+                  background: '#2166e8',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: (docs.length === 0 || selectedDocs.length === 0) ? 'not-allowed' : 'pointer',
+                  fontWeight: '600',
+                  opacity: (docs.length === 0 || selectedDocs.length === 0) ? 0.5 : 1
+                }}
+                onClick={() => setShowBatesExportModal(true)}
+                disabled={docs.length === 0 || selectedDocs.length === 0}
+              >
+                📋 Bates Export
               </button>
               <button
                 style={{
@@ -588,6 +606,15 @@ export default function CaseDetail({ caseId, onBack }) {
           caseId={caseId}
           documents={docs}
           onClose={() => setShowExportModal(false)}
+        />
+      )}
+
+      {showBatesExportModal && (
+        <BatesExportModal
+          caseId={caseId}
+          caseNumber={casedata?.number || `CASE${caseId}`}
+          selectedDocuments={selectedDocs}
+          onClose={() => setShowBatesExportModal(false)}
         />
       )}
 

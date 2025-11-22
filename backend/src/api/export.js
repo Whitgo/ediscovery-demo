@@ -7,6 +7,7 @@ const path = require('path');
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const { createNotification } = require('./notifications');
 const { decryptFile, isEncryptionEnabled } = require('../utils/encryption');
+const { batchStampDocuments, generateBatesNumber } = require('../utils/pdfBates');
 
 // Middleware
 const auth = require('../middleware/auth');
@@ -507,6 +508,224 @@ router.post('/case/:caseId/preview', auth, async (req, res) => {
   } catch (error) {
     logger.error('Export preview error', { error: error.message, caseId, userId: req.user?.id });
     return res.status(500).json({ error: 'Failed to generate export preview' });
+  }
+});
+
+/**
+ * POST /api/export/case/:caseId/bates-pdf
+ * Export and stamp documents with Bates numbering for legal compliance
+ * Body: { 
+ *   documentIds: [1, 2, 3], 
+ *   includeDateTime: true, 
+ *   includeUserId: true,
+ *   startingNumber: 1
+ * }
+ */
+router.post('/case/:caseId/bates-pdf', auth, async (req, res) => {
+  const { caseId } = req.params;
+  const { 
+    documentIds, 
+    includeDateTime = true, 
+    includeUserId = true,
+    startingNumber = 1
+  } = req.body;
+
+  try {
+    // Validate caseId
+    const caseIdNum = parseInt(caseId, 10);
+    if (isNaN(caseIdNum)) {
+      return res.status(400).json({ error: 'Invalid case ID' });
+    }
+
+    // Validate documentIds
+    if (!Array.isArray(documentIds) || documentIds.length === 0) {
+      return res.status(400).json({ error: 'Document IDs array is required and must not be empty' });
+    }
+
+    if (documentIds.length > 500) {
+      return res.status(400).json({ error: 'Maximum 500 documents can be exported at once' });
+    }
+
+    // Verify case exists
+    const caseData = await req.knex('cases').where({ id: caseIdNum }).first();
+    if (!caseData) {
+      return res.status(404).json({ error: 'Case not found' });
+    }
+
+    // Fetch PDF documents only
+    const documents = await req.knex('documents')
+      .where('case_id', caseIdNum)
+      .whereIn('id', documentIds)
+      .orderBy('name', 'asc');
+
+    if (documents.length === 0) {
+      return res.status(404).json({ error: 'No documents found matching the provided IDs' });
+    }
+
+    // Filter for PDF documents only
+    const pdfDocuments = documents.filter(doc => 
+      doc.stored_filename && doc.file_name && doc.file_name.toLowerCase().endsWith('.pdf')
+    );
+
+    if (pdfDocuments.length === 0) {
+      return res.status(400).json({ 
+        error: 'No PDF documents found in selection',
+        totalDocuments: documents.length,
+        pdfDocuments: 0
+      });
+    }
+
+    // Create temp output directory for stamped PDFs
+    const outputDir = path.join(__dirname, '../../temp', `bates-export-${Date.now()}`);
+    await fs.promises.mkdir(outputDir, { recursive: true });
+
+    // Generate Bates prefix from case number
+    const batesPrefix = caseData.number || `CASE${caseIdNum}`;
+
+    // Process documents with Bates stamping
+    const timestamp = new Date();
+    const manifest = await batchStampDocuments(pdfDocuments, outputDir, {
+      batesPrefix: batesPrefix.replace(/[^A-Z0-9]/gi, '').toUpperCase(),
+      startingNumber,
+      includeDateTime,
+      includeUserId,
+      userId: req.user?.id || 'UNKNOWN',
+      timestamp
+    });
+
+    // Log to audit trail for compliance
+    await req.knex('audit_logs').insert({
+      user: req.user?.id || null,
+      action: 'bates_export',
+      object_type: 'case',
+      object_id: caseIdNum,
+      details: JSON.stringify({
+        case_number: caseData.number,
+        document_count: manifest.processedDocuments,
+        total_pages: manifest.totalPages,
+        bates_range: manifest.batesRange,
+        include_datetime: includeDateTime,
+        include_user_id: includeUserId,
+        starting_number: startingNumber,
+        timestamp: timestamp.toISOString(),
+        document_ids: documentIds,
+        manifest_summary: {
+          processed: manifest.processedDocuments,
+          skipped: manifest.skippedDocuments,
+          failed: manifest.failedDocuments
+        }
+      }),
+      timestamp: req.knex.fn.now()
+    });
+
+    // Create ZIP archive with stamped PDFs
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="BATES_${caseData.number}_${timestamp.toISOString().split('T')[0]}.zip"`
+    );
+
+    const archive = archiver('zip', { zlib: { level: 9 } });
+
+    archive.on('error', (err) => {
+      logger.error('Archive error during Bates export', { error: err.message, caseId });
+      throw err;
+    });
+
+    archive.pipe(res);
+
+    // Add stamped PDFs to archive
+    for (const result of manifest.documents) {
+      if (result.success && result.outputPath) {
+        const fileContent = await fs.promises.readFile(result.outputPath);
+        archive.append(fileContent, { name: result.outputFileName });
+      }
+    }
+
+    // Add manifest as JSON
+    archive.append(JSON.stringify(manifest, null, 2), { 
+      name: 'BATES_MANIFEST.json' 
+    });
+
+    // Add manifest as human-readable text
+    const manifestText = `BATES NUMBERING MANIFEST
+===============================================
+Case: ${caseData.name} (${caseData.number})
+Export Date: ${timestamp.toLocaleString()}
+User: ${req.user?.name || req.user?.email || 'Unknown'} (ID: ${req.user?.id})
+
+BATES RANGE
+-----------
+Start: ${manifest.batesRange.start || 'N/A'}
+End: ${manifest.batesRange.end || 'N/A'}
+
+SUMMARY
+-------
+Total Documents: ${manifest.totalDocuments}
+Processed: ${manifest.processedDocuments}
+Skipped: ${manifest.skippedDocuments}
+Failed: ${manifest.failedDocuments}
+Total Pages: ${manifest.totalPages}
+
+OPTIONS
+-------
+Include Date/Time: ${includeDateTime ? 'Yes' : 'No'}
+Include User ID: ${includeUserId ? 'Yes' : 'No'}
+Starting Number: ${startingNumber}
+
+DOCUMENTS
+---------
+${manifest.documents.map((doc, idx) => `
+${idx + 1}. ${doc.fileName}
+   Status: ${doc.success ? 'Success' : doc.skipped ? 'Skipped' : 'Failed'}
+   ${doc.success ? `Pages: ${doc.pageCount}` : ''}
+   ${doc.success ? `Bates Range: ${doc.batesRange.start} - ${doc.batesRange.end}` : ''}
+   ${doc.error ? `Error: ${doc.error}` : ''}
+`).join('\n')}
+
+===============================================
+This export complies with legal document production standards.
+All Bates numbers are sequential and unique.
+`;
+
+    archive.append(manifestText, { name: 'BATES_MANIFEST.txt' });
+
+    await archive.finalize();
+
+    // Cleanup temp directory after a delay
+    setTimeout(async () => {
+      try {
+        await fs.promises.rm(outputDir, { recursive: true, force: true });
+      } catch (err) {
+        logger.error('Failed to cleanup Bates export temp directory', { 
+          outputDir, 
+          error: err.message 
+        });
+      }
+    }, 60000); // 1 minute delay
+
+    logger.info('Bates export completed', {
+      caseId,
+      userId: req.user?.id,
+      documentsProcessed: manifest.processedDocuments,
+      batesRange: manifest.batesRange
+    });
+
+  } catch (error) {
+    logger.error('Bates export error', { 
+      error: error.message, 
+      stack: error.stack,
+      caseId, 
+      userId: req.user?.id 
+    });
+    
+    // Try to send error response if headers not sent
+    if (!res.headersSent) {
+      return res.status(500).json({ 
+        error: 'Failed to generate Bates export',
+        details: error.message
+      });
+    }
   }
 });
 
