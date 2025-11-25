@@ -29,6 +29,7 @@ const privacyRoutes = require('./api/privacy');
 const incidentRoutes = require('./api/incidents');
 const backupRoutes = require('./api/backups');
 const securityRoutes = require('./api/security');
+const outlookRoutes = require('./api/outlook');
 const { startRetentionJob } = require('./jobs/retentionCleanup');
 const { startBackupScheduler } = require('./jobs/backupScheduler');
 
@@ -169,6 +170,7 @@ app.use('/api/privacy', apiLimiter, privacyRoutes);
 app.use('/api/incidents', apiLimiter, incidentRoutes);
 app.use('/api/backups', apiLimiter, backupRoutes);
 app.use('/api/security', apiLimiter, securityRoutes);
+app.use('/api/outlook', apiLimiter, outlookRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 

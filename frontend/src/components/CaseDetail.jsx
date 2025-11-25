@@ -9,6 +9,7 @@ import AdvancedDocumentSearch from "./AdvancedDocumentSearch";
 import ExportModal from "./ExportModal";
 import DocumentViewer from "./DocumentViewer";
 import BatesExportModal from "./BatesExportModal";
+import OutlookImport from "./OutlookImport";
 
 export default function CaseDetail({ caseId, onBack }) {
   const user = useUser();
@@ -31,6 +32,7 @@ export default function CaseDetail({ caseId, onBack }) {
   const [showBatesExportModal, setShowBatesExportModal] = useState(false);
   const [hoveredDocId, setHoveredDocId] = useState(null);
   const [thumbnailPosition, setThumbnailPosition] = useState({ x: 0, y: 0 });
+  const [showOutlookImport, setShowOutlookImport] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -154,6 +156,20 @@ export default function CaseDetail({ caseId, onBack }) {
                 onClick={() => setShowBulkUploadModal(true)}
               >
                 📤 Bulk Upload
+              </button>
+              <button
+                style={{
+                  padding: '8px 16px',
+                  background: '#0078d4',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: '600'
+                }} 
+                onClick={() => setShowOutlookImport(true)}
+              >
+                📧 Outlook
               </button>
               <button
                 style={{
@@ -673,6 +689,17 @@ export default function CaseDetail({ caseId, onBack }) {
             Preview unavailable
           </div>
         </div>
+      )}
+
+      {showOutlookImport && (
+        <OutlookImport
+          caseId={caseId}
+          onClose={() => setShowOutlookImport(false)}
+          onSuccess={(result) => {
+            console.log('Outlook import result:', result);
+            refreshDocuments();
+          }}
+        />
       )}
 
       {viewingDocId && (

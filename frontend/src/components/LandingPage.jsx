@@ -243,6 +243,44 @@ export default function LandingPage({ onGetStarted }) {
                 </p>
               </div>
             </div>
+
+            {/* Affordable Pricing */}
+            <div style={{
+              display: "flex",
+              gap: "30px",
+              padding: "30px",
+              background: "#f8f9fc",
+              borderRadius: "12px",
+              borderLeft: "5px solid #43e97b"
+            }}>
+              <div style={{ minWidth: "50px", fontSize: "2.5em" }}>💰</div>
+              <div>
+                <h3 style={{
+                  fontSize: "1.6em",
+                  fontWeight: "700",
+                  color: "#1e3c72",
+                  marginBottom: "12px"
+                }}>
+                  Affordable Pricing
+                </h3>
+                <p style={{
+                  fontSize: "1.1em",
+                  color: "#5a6c7d",
+                  lineHeight: "1.7",
+                  marginBottom: "10px"
+                }}>
+                  No upfront implementation fees and significantly lower monthly costs compared to industry competitors.
+                </p>
+                <p style={{
+                  fontSize: "1.05em",
+                  color: "#2166e8",
+                  fontWeight: "600",
+                  lineHeight: "1.6"
+                }}>
+                  → Get enterprise-grade eDiscovery without breaking the bank.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>

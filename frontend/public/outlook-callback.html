@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Outlook Authorization</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      background: #f7fafc;
+    }
+    .container {
+      text-align: center;
+      padding: 40px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      max-width: 400px;
+    }
+    .spinner {
+      border: 4px solid #e2e8f0;
+      border-top: 4px solid #2166e8;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    h2 {
+      color: #2d3748;
+      margin-bottom: 12px;
+    }
+    p {
+      color: #718096;
+      margin: 0;
+    }
+    .success {
+      color: #38a169;
+      font-size: 3em;
+    }
+    .error {
+      color: #e53e3e;
+      font-size: 3em;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="spinner"></div>
+    <h2>Authorizing Outlook</h2>
+    <p>Please wait while we complete the authorization...</p>
+  </div>
+
+  <script>
+    // Parse URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const error = urlParams.get('error');
+    const errorDescription = urlParams.get('error_description');
+
+    if (error) {
+      document.querySelector('.container').innerHTML = `
+        <div class="error">❌</div>
+        <h2>Authorization Failed</h2>
+        <p>${errorDescription || error}</p>
+      `;
+    } else if (code) {
+      // Send authorization code to opener window
+      if (window.opener) {
+        window.opener.postMessage({
+          type: 'outlook-oauth-code',
+          code: code
+        }, window.location.origin);
+        
+        document.querySelector('.container').innerHTML = `
+          <div class="success">✓</div>
+          <h2>Authorization Successful</h2>
+          <p>You can close this window now.</p>
+        `;
+        
+        // Auto-close after 2 seconds
+        setTimeout(() => {
+          window.close();
+        }, 2000);
+      } else {
+        document.querySelector('.container').innerHTML = `
+          <div class="error">❌</div>
+          <h2>Error</h2>
+          <p>Unable to communicate with parent window. Please try again.</p>
+        `;
+      }
+    } else {
+      document.querySelector('.container').innerHTML = `
+        <div class="error">❌</div>
+        <h2>Invalid Response</h2>
+        <p>No authorization code received. Please try again.</p>
+      `;
+    }
+  </script>
+</body>
+</html>

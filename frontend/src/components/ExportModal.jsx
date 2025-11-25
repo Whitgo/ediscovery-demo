@@ -3,6 +3,11 @@ import React, { useState } from "react";
 export default function ExportModal({ caseId, documents, onClose }) {
   const [selectedDocs, setSelectedDocs] = useState([]);
   const [includeMetadata, setIncludeMetadata] = useState(true);
+  const [batesNumbering, setBatesNumbering] = useState(false);
+  const [batesPrefix, setBatesPrefix] = useState('');
+  const [batesStartNumber, setBatesStartNumber] = useState(1);
+  const [watermark, setWatermark] = useState('');
+  const [watermarkPosition, setWatermarkPosition] = useState('diagonal');
   const [exporting, setExporting] = useState(false);
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState('');
@@ -81,7 +86,13 @@ export default function ExportModal({ caseId, documents, onClose }) {
           body: JSON.stringify({
             documentIds: selectedDocs,
             format: 'zip',
-            includeMetadata
+            includeMetadata,
+            batesNumbering,
+            batesPrefix,
+            batesStartNumber: parseInt(batesStartNumber) || 1,
+            watermark: watermark || null,
+            watermarkPosition,
+            watermarkOpacity: 0.3
           })
         }
       );
@@ -321,6 +332,204 @@ export default function ExportModal({ caseId, documents, onClose }) {
             background: '#f7fafc',
             borderRadius: '6px',
             cursor: exporting ? 'not-allowed' : 'pointer',
+            border: '1px solid #e2e8f0',
+            marginBottom: '12px'
+          }}>
+            <input
+              type="checkbox"
+              checked={batesNumbering}
+              onChange={(e) => setBatesNumbering(e.target.checked)}
+              disabled={exporting}
+              style={{ 
+                marginRight: '10px',
+                cursor: exporting ? 'not-allowed' : 'pointer'
+              }}
+            />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: '600', color: '#2d3748', fontSize: '0.95em' }}>
+                Apply Bates Numbering
+              </div>
+              <div style={{ fontSize: '0.8em', color: '#718096', marginTop: '2px' }}>
+                Sequential numbering for legal compliance (e.g., CASE001-000001)
+              </div>
+            </div>
+          </label>
+
+          {batesNumbering && (
+            <div style={{ 
+              marginLeft: '32px', 
+              marginBottom: '12px',
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '12px'
+            }}>
+              <div>
+                <label style={{ 
+                  display: 'block', 
+                  fontSize: '0.85em', 
+                  fontWeight: '600',
+                  color: '#2d3748',
+                  marginBottom: '4px'
+                }}>
+                  Bates Prefix
+                </label>
+                <input
+                  type="text"
+                  value={batesPrefix}
+                  onChange={(e) => setBatesPrefix(e.target.value)}
+                  placeholder="e.g., CASE001"
+                  disabled={exporting}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #cbd5e0',
+                    borderRadius: '4px',
+                    fontSize: '0.9em'
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ 
+                  display: 'block', 
+                  fontSize: '0.85em', 
+                  fontWeight: '600',
+                  color: '#2d3748',
+                  marginBottom: '4px'
+                }}>
+                  Start Number
+                </label>
+                <input
+                  type="number"
+                  value={batesStartNumber}
+                  onChange={(e) => setBatesStartNumber(e.target.value)}
+                  min="1"
+                  disabled={exporting}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #cbd5e0',
+                    borderRadius: '4px',
+                    fontSize: '0.9em'
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          <label style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            padding: '12px',
+            background: '#fff5f5',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            border: '1px solid #feb2b2',
+            marginBottom: '12px'
+          }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: '600', color: '#c53030', fontSize: '0.95em', marginBottom: '8px' }}>
+                Apply Watermark (PDFs only)
+              </div>
+              <div style={{ marginLeft: '0' }}>
+                <label style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  marginBottom: '6px',
+                  cursor: exporting ? 'not-allowed' : 'pointer'
+                }}>
+                  <input
+                    type="radio"
+                    name="watermark"
+                    value=""
+                    checked={watermark === ''}
+                    onChange={(e) => setWatermark('')}
+                    disabled={exporting}
+                    style={{ marginRight: '8px' }}
+                  />
+                  <span style={{ fontSize: '0.85em', color: '#4a5568' }}>None</span>
+                </label>
+                <label style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  marginBottom: '6px',
+                  cursor: exporting ? 'not-allowed' : 'pointer'
+                }}>
+                  <input
+                    type="radio"
+                    name="watermark"
+                    value="confidential"
+                    checked={watermark === 'confidential'}
+                    onChange={(e) => setWatermark(e.target.value)}
+                    disabled={exporting}
+                    style={{ marginRight: '8px' }}
+                  />
+                  <span style={{ fontSize: '0.85em', color: '#c53030', fontWeight: '600' }}>
+                    CONFIDENTIAL – DO NOT DISTRIBUTE
+                  </span>
+                </label>
+                <label style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  marginBottom: '8px',
+                  cursor: exporting ? 'not-allowed' : 'pointer'
+                }}>
+                  <input
+                    type="radio"
+                    name="watermark"
+                    value="attorney-work-product"
+                    checked={watermark === 'attorney-work-product'}
+                    onChange={(e) => setWatermark(e.target.value)}
+                    disabled={exporting}
+                    style={{ marginRight: '8px' }}
+                  />
+                  <span style={{ fontSize: '0.85em', color: '#c53030', fontWeight: '600' }}>
+                    ATTORNEY WORK PRODUCT
+                  </span>
+                </label>
+                
+                {watermark && (
+                  <div style={{ marginTop: '8px' }}>
+                    <label style={{ 
+                      display: 'block', 
+                      fontSize: '0.8em', 
+                      fontWeight: '600',
+                      color: '#2d3748',
+                      marginBottom: '4px'
+                    }}>
+                      Watermark Position
+                    </label>
+                    <select
+                      value={watermarkPosition}
+                      onChange={(e) => setWatermarkPosition(e.target.value)}
+                      disabled={exporting}
+                      style={{
+                        width: '100%',
+                        padding: '6px',
+                        border: '1px solid #cbd5e0',
+                        borderRadius: '4px',
+                        fontSize: '0.85em',
+                        background: '#fff'
+                      }}
+                    >
+                      <option value="diagonal">Diagonal (center)</option>
+                      <option value="bottom-center">Bottom Center</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+              <div style={{ fontSize: '0.75em', color: '#718096', marginTop: '6px' }}>
+                Semi-transparent red watermark (opacity 0.3)
+              </div>
+            </div>
+          </label>
+
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '12px',
+            background: '#f7fafc',
+            borderRadius: '6px',
+            cursor: exporting ? 'not-allowed' : 'pointer',
             border: '1px solid #e2e8f0'
           }}>
             <input
@@ -360,6 +569,8 @@ export default function ExportModal({ caseId, documents, onClose }) {
             <li>Auto-generated audit-ready index page (PDF)</li>
             <li>All selected documents with sequential numbering</li>
             <li>Chain of custody with timestamps and user information</li>
+            {batesNumbering && <li>Bates numbering for legal compliance (page-level stamping)</li>}
+            {watermark && <li>Red watermark on all PDF pages for document protection</li>}
             {includeMetadata && <li>Metadata JSON file with tags and categories</li>}
           </ul>
         </div>

@@ -8,6 +8,7 @@ const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const { createNotification } = require('./notifications');
 const { decryptFile, isEncryptionEnabled } = require('../utils/encryption');
 const { batchStampDocuments, generateBatesNumber } = require('../utils/pdfBates');
+const { applyWatermark, applyBatesAndWatermark } = require('../utils/pdfWatermark');
 
 // Middleware
 const auth = require('../middleware/auth');
@@ -23,7 +24,17 @@ const auth = require('../middleware/auth');
  */
 router.post('/case/:caseId/documents', auth, async (req, res) => {
   const { caseId } = req.params;
-  const { documentIds, format = 'zip', includeMetadata = true } = req.body;
+  const { 
+    documentIds, 
+    format = 'zip', 
+    includeMetadata = true,
+    batesNumbering = false,
+    batesPrefix = '',
+    batesStartNumber = 1,
+    watermark = null, // 'confidential' or 'attorney-work-product'
+    watermarkPosition = 'diagonal', // 'diagonal' or 'bottom-center'
+    watermarkOpacity = 0.3
+  } = req.body;
 
   try {
     // Validate caseId
@@ -127,7 +138,28 @@ router.post('/case/:caseId/documents', auth, async (req, res) => {
 
     // Add documents to archive
     const uploadsDir = path.join(__dirname, '../../uploads');
+    const tempDir = path.join(__dirname, '../../uploads/temp');
+    
+    // Ensure temp directory exists
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    
     let addedCount = 0;
+    let totalPages = 0;
+    let batesStart = null;
+    let batesEnd = null;
+    let currentBatesNumber = batesStartNumber;
+
+    // Prepare watermark options if enabled
+    const watermarkOptions = watermark ? {
+      text: watermark === 'confidential' 
+        ? 'CONFIDENTIAL – DO NOT DISTRIBUTE' 
+        : 'ATTORNEY WORK PRODUCT',
+      position: watermarkPosition,
+      opacity: watermarkOpacity,
+      color: { r: 1, g: 0, b: 0 } // Red
+    } : null;
 
     for (let i = 0; i < documents.length; i++) {
       const doc = documents[i];
@@ -147,15 +179,87 @@ router.post('/case/:caseId/documents', auth, async (req, res) => {
 
       try {
         // Create a sanitized filename with index
-        const fileExtension = doc.file_type ? `.${doc.file_type.split('/').pop()}` : '';
+        const fileExtension = path.extname(doc.name) || (doc.file_type ? `.${doc.file_type.split('/').pop()}` : '');
         const sanitizedName = doc.name.replace(/[^a-z0-9.-]/gi, '_');
-        const indexedName = `${String(i + 1).padStart(3, '0')}_${sanitizedName}${fileExtension}`;
+        const indexedName = `${String(i + 1).padStart(3, '0')}_${sanitizedName}`;
+        
+        let fileToAdd = filePath;
+        let processedFileToCleanup = null;
+
+        // Process PDFs with Bates numbering and/or watermarking
+        if (doc.file_type === 'application/pdf' && (batesNumbering || watermark)) {
+          const tempOutputPath = path.join(tempDir, `processed_${Date.now()}_${doc.stored_filename}`);
+          
+          if (batesNumbering && watermark) {
+            // Apply both Bates and watermark
+            const actualBatesPrefix = batesPrefix || `${caseData.number}`;
+            const batesNum = `${actualBatesPrefix}-${String(currentBatesNumber).padStart(6, '0')}`;
+            
+            const result = await applyBatesAndWatermark(filePath, tempOutputPath, {
+              batesNumber: batesNum,
+              includeDateTime: true,
+              includeUserId: true,
+              userId: req.user.username,
+              timestamp: new Date()
+            }, watermarkOptions);
+            
+            totalPages += result.pageCount;
+            currentBatesNumber += result.pageCount;
+            
+            if (!batesStart) batesStart = result.batesRange.start;
+            batesEnd = result.batesRange.end;
+            
+            fileToAdd = tempOutputPath;
+            processedFileToCleanup = tempOutputPath;
+            
+          } else if (batesNumbering) {
+            // Apply only Bates numbering (using existing utility)
+            const actualBatesPrefix = batesPrefix || `${caseData.number}`;
+            const batesNum = `${actualBatesPrefix}-${String(currentBatesNumber).padStart(6, '0')}`;
+            
+            const { applyBatesStamp } = require('../utils/pdfBates');
+            const result = await applyBatesStamp(filePath, tempOutputPath, {
+              batesNumber: batesNum,
+              includeDateTime: true,
+              includeUserId: true,
+              userId: req.user.username,
+              timestamp: new Date()
+            });
+            
+            totalPages += result.pageCount;
+            currentBatesNumber += result.pageCount;
+            
+            if (!batesStart) batesStart = result.batesRange.start;
+            batesEnd = result.batesRange.end;
+            
+            fileToAdd = tempOutputPath;
+            processedFileToCleanup = tempOutputPath;
+            
+          } else if (watermark) {
+            // Apply only watermark
+            const result = await applyWatermark(filePath, tempOutputPath, watermarkOptions);
+            totalPages += result.pageCount;
+            
+            fileToAdd = tempOutputPath;
+            processedFileToCleanup = tempOutputPath;
+          }
+        }
         
         // Add file to archive
-        archive.file(filePath, { name: indexedName });
+        archive.file(fileToAdd, { name: indexedName });
         addedCount++;
+        
+        // Clean up temp file after adding to archive
+        if (processedFileToCleanup) {
+          // Delay cleanup slightly to ensure archiver has read the file
+          setTimeout(() => {
+            fs.unlink(processedFileToCleanup, (err) => {
+              if (err) logger.warn('Failed to clean up temp file', { path: processedFileToCleanup });
+            });
+          }, 1000);
+        }
       } catch (fileError) {
-        console.error(`Error adding file ${doc.id} to archive:`, fileError);
+        logger.error(`Error processing file ${doc.id} for export:`, fileError);
       }
     }
 
@@ -195,18 +299,59 @@ router.post('/case/:caseId/documents', auth, async (req, res) => {
 
     // Log audit trail
     try {
+      const auditDetails = {
+        document_count: documents.length,
+        document_ids: documentIds,
+        format,
+        include_metadata: includeMetadata,
+        exported_at: exportTimestamp
+      };
+
+      // Add Bates numbering info if applied
+      if (batesNumbering && batesStart && batesEnd) {
+        auditDetails.bates_numbering = {
+          enabled: true,
+          prefix: batesPrefix || caseData.number,
+          start_number: batesStartNumber,
+          range: `${batesStart}–${batesEnd}`,
+          total_pages: totalPages
+        };
+      }
+
+      // Add watermark info if applied
+      if (watermark) {
+        auditDetails.watermark = {
+          enabled: true,
+          type: watermark,
+          text: watermarkOptions.text,
+          position: watermarkPosition,
+          opacity: watermarkOpacity
+        };
+      }
+
+      // Create descriptive audit message
+      let auditMessage = `Exported ${documents.length} document(s)`;
+      if (batesNumbering && totalPages > 0) {
+        auditMessage += ` with Bates range ${batesStart}–${batesEnd} (${totalPages} pages)`;
+      }
+      if (watermark) {
+        auditMessage += `, watermarked '${watermarkOptions.text}'`;
+      }
+
       await req.knex('audit_logs').insert({
         case_id: caseIdNum,
         user_id: req.user.id,
         action: 'export_documents',
-        details: JSON.stringify({
-          document_count: documents.length,
-          document_ids: documentIds,
-          format,
-          include_metadata: includeMetadata,
-          exported_at: exportTimestamp
-        }),
-        created_at: knex.fn.now()
+        details: JSON.stringify(auditDetails),
+        created_at: req.knex.fn.now()
+      });
+
+      logger.info(auditMessage, {
+        caseId: caseIdNum,
+        userId: req.user.id,
+        documentCount: documents.length,
+        batesRange: batesNumbering ? `${batesStart}–${batesEnd}` : null,
+        watermark: watermark || null
       });
     } catch (auditError) {
       logger.error('Failed to log export audit', { 
