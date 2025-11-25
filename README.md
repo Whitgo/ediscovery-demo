@@ -1,2 +1,2 @@
 # ediscovery-demo
-lightweight eDiscovery and case management program
+eDiscovery and case management program
