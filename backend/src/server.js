@@ -69,7 +69,7 @@ app.use(helmet({
 // CORS Configuration - Tightened for security
 const allowedOrigins = process.env.CORS_ORIGIN 
   ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
-  : ['http://localhost:3000']; // Default for development
+  : ['http://localhost:3000', 'http://localhost:5173', 'https://localhost:5173']; // Default for development
 
 const corsOptions = {
   origin: (origin, callback) => {

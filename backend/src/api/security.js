@@ -143,24 +143,29 @@ router.get('/failed-logins', auth, requireRole('admin', 'manager'), async (req, 
   const { limit = 100, offset = 0, hours = 24 } = req.query;
   
   try {
+    // Validate and sanitize inputs
+    const safeHours = Math.max(1, Math.min(parseInt(hours) || 24, 8760)); // 1 hour to 1 year max
+    const safeLimit = Math.max(1, Math.min(parseInt(limit) || 100, 1000));
+    const safeOffset = Math.max(0, parseInt(offset) || 0);
+    
     const logs = await knex('audit_logs')
       .where('action', 'failed_login')
-      .where('timestamp', '>', knex.raw(`NOW() - INTERVAL '${parseInt(hours)} hours'`))
+      .where('timestamp', '>', knex.raw(`NOW() - INTERVAL '${safeHours} hours'`))
       .orderBy('timestamp', 'desc')
-      .limit(parseInt(limit))
-      .offset(parseInt(offset));
+      .limit(safeLimit)
+      .offset(safeOffset);
 
     const total = await knex('audit_logs')
       .where('action', 'failed_login')
-      .where('timestamp', '>', knex.raw(`NOW() - INTERVAL '${parseInt(hours)} hours'`))
+      .where('timestamp', '>', knex.raw(`NOW() - INTERVAL '${safeHours} hours'`))
       .count('* as count')
       .first();
 
     res.json({
       logs,
       total: parseInt(total.count),
-      limit: parseInt(limit),
-      offset: parseInt(offset)
+      limit: safeLimit,
+      offset: safeOffset
     });
 
   } catch (error) {
@@ -184,10 +189,15 @@ router.get('/audit-logs', auth, requireRole('admin', 'manager', 'support'), asyn
   } = req.query;
   
   try {
+    // Validate and sanitize inputs
+    const safeHours = Math.max(1, Math.min(parseInt(hours) || 24, 8760));
+    const safeLimit = Math.max(1, Math.min(parseInt(limit) || 100, 1000));
+    const safeOffset = Math.max(0, parseInt(offset) || 0);
+    
     let query = knex('audit_logs')
       .select('audit_logs.*', 'users.name', 'users.email', 'users.role')
       .leftJoin('users', 'audit_logs.user', 'users.id')
-      .where('audit_logs.timestamp', '>', knex.raw(`NOW() - INTERVAL '${parseInt(hours)} hours'`));
+      .where('audit_logs.timestamp', '>', knex.raw(`NOW() - INTERVAL '${safeHours} hours'`));
 
     if (action) {
       query = query.where('audit_logs.action', action);
@@ -199,11 +209,11 @@ router.get('/audit-logs', auth, requireRole('admin', 'manager', 'support'), asyn
 
     const logs = await query
       .orderBy('audit_logs.timestamp', 'desc')
-      .limit(parseInt(limit))
-      .offset(parseInt(offset));
+      .limit(safeLimit)
+      .offset(safeOffset);
 
     const total = await knex('audit_logs')
-      .where('timestamp', '>', knex.raw(`NOW() - INTERVAL '${parseInt(hours)} hours'`))
+      .where('timestamp', '>', knex.raw(`NOW() - INTERVAL '${safeHours} hours'`))
       .modify(qb => {
         if (action) qb.where('action', action);
         if (user) qb.where('user', parseInt(user));
@@ -214,8 +224,8 @@ router.get('/audit-logs', auth, requireRole('admin', 'manager', 'support'), asyn
     res.json({
       logs,
       total: parseInt(total.count),
-      limit: parseInt(limit),
-      offset: parseInt(offset)
+      limit: safeLimit,
+      offset: safeOffset
     });
 
   } catch (error) {
@@ -242,7 +252,7 @@ router.get('/active-sessions', auth, requireRole('admin', 'manager'), async (req
         knex.raw('MAX(audit_logs.timestamp) as last_activity')
       )
       .leftJoin('users', 'audit_logs.user', 'users.id')
-      .where('audit_logs.action', 'login')
+      .where('audit_logs.action', 'successful_login')
       .where('audit_logs.timestamp', '>', knex.raw("NOW() - INTERVAL '1 hour'"))
       .whereNotNull('user')
       .groupBy('user', 'users.name', 'users.email', 'users.role')
@@ -294,7 +304,7 @@ router.get('/alerts', auth, requireRole('admin', 'manager'), async (req, res) =>
       .where(function() {
         this.where('action', 'like', '%unauthorized%')
           .orWhere('action', 'like', '%denied%')
-          .orWhere('details', 'like', '%403%');
+          .orWhereRaw("details::text like '%403%'");
       })
       .count('* as count')
       .first();
