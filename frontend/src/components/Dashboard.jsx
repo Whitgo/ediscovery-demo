@@ -14,6 +14,9 @@ export default function Dashboard({ onOpenCase, user }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeView, setActiveView] = useState('dashboard');
   const [showSearch, setShowSearch] = useState(false);
+  const [selectedCase, setSelectedCase] = useState(null);
+  const [caseNotes, setCaseNotes] = useState('');
+  const [savingNotes, setSavingNotes] = useState(false);
   const [newCase, setNewCase] = useState({
     name: '',
     number: '',
@@ -149,6 +152,28 @@ export default function Dashboard({ onOpenCase, user }) {
       'trial': '#e53e3e'
     };
     return colors[disposition] || '#a0aec0';
+  };
+
+  const handleCaseClick = (caseItem) => {
+    setSelectedCase(caseItem);
+    setCaseNotes(caseItem.notes || '');
+  };
+
+  const handleSaveNotes = async () => {
+    if (!selectedCase) return;
+    
+    setSavingNotes(true);
+    try {
+      await apiPatch(`/cases/${selectedCase.id}`, { notes: caseNotes });
+      // Update the case in the local state
+      setCases(cases.map(c => c.id === selectedCase.id ? { ...c, notes: caseNotes } : c));
+      setSelectedCase({ ...selectedCase, notes: caseNotes });
+      alert('Notes saved successfully!');
+    } catch (error) {
+      alert('Failed to save notes: ' + error.message);
+    } finally {
+      setSavingNotes(false);
+    }
   };
 
   if (loading) {
@@ -455,11 +480,229 @@ export default function Dashboard({ onOpenCase, user }) {
         {/* Dashboard Content */}
         <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
 
-      {/* Statistics Overview */}
+          {/* Three Horizontal Sections Layout */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            
+            {/* 1. Case Overview Panel */}
+            <div style={{
+              background: '#fff',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              padding: '24px',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+            }}>
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                marginBottom: '20px'
+              }}>
+                <h3 style={{ margin: 0, color: '#2d3748', fontSize: '1.25em' }}>
+                  📁 Case Overview
+                </h3>
+                {selectedCase && (
+                  <div style={{
+                    background: '#f56565',
+                    color: '#fff',
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 'bold',
+                    fontSize: '0.9em'
+                  }}>
+                    5
+                  </div>
+                )}
+              </div>
+              
+              {selectedCase ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                  <div>
+                    <div style={{ fontSize: '0.85em', color: '#718096', marginBottom: '4px', fontWeight: '600' }}>
+                      CASE NAME
+                    </div>
+                    <div style={{ fontSize: '1.1em', color: '#2d3748', fontWeight: '600' }}>
+                      {selectedCase.name}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.85em', color: '#718096', marginBottom: '4px', fontWeight: '600' }}>
+                      CASE #
+                    </div>
+                    <div style={{ fontSize: '1.1em', color: '#2d3748', fontWeight: '600' }}>
+                      {selectedCase.number}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.85em', color: '#718096', marginBottom: '4px', fontWeight: '600' }}>
+                      ASSIGNED ATTORNEY
+                    </div>
+                    <div style={{ fontSize: '1.1em', color: '#2d3748', fontWeight: '600' }}>
+                      {selectedCase.assigned_to || 'Unassigned'}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.85em', color: '#718096', marginBottom: '4px', fontWeight: '600' }}>
+                      CASE STATUS
+                    </div>
+                    <div style={{ 
+                      fontSize: '1.1em', 
+                      fontWeight: '600',
+                      color: getStatusColor(selectedCase.status),
+                      textTransform: 'capitalize'
+                    }}>
+                      {selectedCase.status}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ color: '#718096', textAlign: 'center', padding: '20px' }}>
+                  Select a case from the list below to view details
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Section: Two Columns */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: '24px' }}>
+              
+              {/* 2. Search & Document List */}
+              <div style={{
+                background: '#fff',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                padding: '24px',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                maxHeight: '500px',
+                overflowY: 'auto'
+              }}>
+                <h3 style={{ margin: '0 0 20px 0', color: '#2d3748', fontSize: '1.25em' }}>
+                  🔍 Search & Document List
+                </h3>
+                
+                {/* Document entries simulation */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {selectedCase ? (
+                    documents
+                      .filter(doc => doc.case_id === selectedCase.id)
+                      .map(doc => (
+                        <div 
+                          key={doc.id}
+                          style={{
+                            padding: '12px',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '6px',
+                            background: '#f7fafc',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = '#4299e1';
+                            e.currentTarget.style.background = '#fff';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = '#e2e8f0';
+                            e.currentTarget.style.background = '#f7fafc';
+                          }}
+                        >
+                          <div style={{ fontWeight: '600', color: '#2d3748', marginBottom: '4px' }}>
+                            {doc.filename}
+                          </div>
+                          <div style={{ fontSize: '0.85em', color: '#718096' }}>
+                            {doc.file_type} • {new Date(doc.upload_date).toLocaleDateString()}
+                          </div>
+                        </div>
+                      ))
+                  ) : (
+                    // Show placeholder lines when no case is selected
+                    Array.from({ length: 8 }).map((_, i) => (
+                      <div 
+                        key={i}
+                        style={{
+                          height: '2px',
+                          background: '#e2e8f0',
+                          borderRadius: '1px',
+                          width: `${80 + (i % 3) * 10}%`
+                        }}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* 3. Case Notes Section */}
+              <div style={{
+                background: '#fff',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                padding: '24px',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                maxHeight: '500px',
+                display: 'flex',
+                flexDirection: 'column'
+              }}>
+                <h3 style={{ margin: '0 0 16px 0', color: '#2d3748', fontSize: '1.25em' }}>
+                  📝 Case Notes
+                </h3>
+                
+                <textarea
+                  value={caseNotes}
+                  onChange={(e) => setCaseNotes(e.target.value)}
+                  disabled={!selectedCase}
+                  placeholder={selectedCase ? 'Enter case notes here...' : 'Select a case to add notes'}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '6px',
+                    fontSize: '0.95em',
+                    fontFamily: 'inherit',
+                    resize: 'none',
+                    marginBottom: '12px',
+                    background: selectedCase ? '#fff' : '#f7fafc',
+                    color: '#2d3748'
+                  }}
+                />
+                
+                <button
+                  onClick={handleSaveNotes}
+                  disabled={!selectedCase || savingNotes}
+                  style={{
+                    padding: '10px 20px',
+                    background: selectedCase && !savingNotes ? '#4299e1' : '#cbd5e0',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: selectedCase && !savingNotes ? 'pointer' : 'not-allowed',
+                    fontWeight: '600',
+                    fontSize: '0.95em',
+                    transition: 'background 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (selectedCase && !savingNotes) {
+                      e.currentTarget.style.background = '#3182ce';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (selectedCase && !savingNotes) {
+                      e.currentTarget.style.background = '#4299e1';
+                    }
+                  }}
+                >
+                  {savingNotes ? 'Saving...' : 'Update Notes'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+      {/* Statistics Overview - Below the three sections */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
         gap: '16px',
+        marginTop: '32px',
         marginBottom: '32px'
       }}>
         {/* Total Cases */}
@@ -715,23 +958,28 @@ export default function Dashboard({ onOpenCase, user }) {
             <div 
               key={c.id} 
               style={{
-                border: '1px solid #e2e8f0',
+                border: selectedCase && selectedCase.id === c.id ? '2px solid #4299e1' : '1px solid #e2e8f0',
                 borderRadius: '8px',
                 padding: '16px',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 transition: 'all 0.2s',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                background: selectedCase && selectedCase.id === c.id ? '#ebf8ff' : '#fff'
               }}
-              onClick={() => onOpenCase(c.id)}
+              onClick={() => handleCaseClick(c)}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#4299e1';
-                e.currentTarget.style.background = '#f7fafc';
+                if (!selectedCase || selectedCase.id !== c.id) {
+                  e.currentTarget.style.borderColor = '#4299e1';
+                  e.currentTarget.style.background = '#f7fafc';
+                }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = '#e2e8f0';
-                e.currentTarget.style.background = '#fff';
+                if (!selectedCase || selectedCase.id !== c.id) {
+                  e.currentTarget.style.borderColor = '#e2e8f0';
+                  e.currentTarget.style.background = '#fff';
+                }
               }}
             >
               <div style={{ flex: 1 }}>
