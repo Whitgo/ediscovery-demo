@@ -10,6 +10,14 @@ export default function Dashboard({ onOpenCase, user }) {
   const [retentionStats, setRetentionStats] = useState(null);
   const [approachingCases, setApproachingCases] = useState([]);
   const [showRetentionPanel, setShowRetentionPanel] = useState(false);
+  const [showAddCaseModal, setShowAddCaseModal] = useState(false);
+  const [newCase, setNewCase] = useState({
+    name: '',
+    number: '',
+    status: 'open',
+    assigned_to: '',
+    disposition: ''
+  });
   const [stats, setStats] = useState({
     totalCases: 0,
     openCases: 0,
@@ -93,6 +101,29 @@ export default function Dashboard({ onOpenCase, user }) {
     });
 
     return stats;
+  };
+
+  const handleAddCase = async () => {
+    if (!newCase.name || !newCase.number) {
+      alert('Please fill in case name and number');
+      return;
+    }
+
+    try {
+      const createdCase = await apiPost('/cases', newCase);
+      setCases([...cases, createdCase]);
+      setShowAddCaseModal(false);
+      setNewCase({
+        name: '',
+        number: '',
+        status: 'open',
+        assigned_to: '',
+        disposition: ''
+      });
+      alert('Case created successfully!');
+    } catch (error) {
+      alert('Failed to create case: ' + error.message);
+    }
   };
 
   const getStatusColor = (status) => {
@@ -402,7 +433,38 @@ export default function Dashboard({ onOpenCase, user }) {
         padding: '20px',
         boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
       }}>
-        <h3 style={{ margin: '0 0 20px 0', color: '#2d3748' }}>Cases</h3>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          marginBottom: '20px'
+        }}>
+          <h3 style={{ margin: 0, color: '#2d3748' }}>Cases</h3>
+          {user && canAccess(user.role, 'create', 'case') && (
+            <button
+              onClick={() => setShowAddCaseModal(true)}
+              style={{
+                padding: '10px 20px',
+                background: '#48bb78',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontSize: '0.95em',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'background 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#38a169'}
+              onMouseLeave={(e) => e.currentTarget.style.background = '#48bb78'}
+            >
+              <span style={{ fontSize: '1.2em' }}>+</span>
+              Add Case
+            </button>
+          )}
+        </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {cases.map(c => (
             <div 
@@ -685,6 +747,184 @@ export default function Dashboard({ onOpenCase, user }) {
               ✅ No cases approaching retention deadline in the next 90 days
             </div>
           )}
+        </div>
+      )}
+      
+      {/* Add Case Modal */}
+      {showAddCaseModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '8px',
+            padding: '24px',
+            maxWidth: '500px',
+            width: '90%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+          }}>
+            <h3 style={{ margin: '0 0 20px 0', color: '#2d3748' }}>Add New Case</h3>
+            
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#4a5568' }}>
+                Case Name *
+              </label>
+              <input
+                type="text"
+                value={newCase.name}
+                onChange={(e) => setNewCase({ ...newCase, name: e.target.value })}
+                placeholder="Enter case name"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  border: '1px solid #cbd5e0',
+                  borderRadius: '6px',
+                  fontSize: '1em',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#4a5568' }}>
+                Case Number *
+              </label>
+              <input
+                type="text"
+                value={newCase.number}
+                onChange={(e) => setNewCase({ ...newCase, number: e.target.value })}
+                placeholder="e.g., 2024-CR-00123"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  border: '1px solid #cbd5e0',
+                  borderRadius: '6px',
+                  fontSize: '1em',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#4a5568' }}>
+                Status
+              </label>
+              <select
+                value={newCase.status}
+                onChange={(e) => setNewCase({ ...newCase, status: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  border: '1px solid #cbd5e0',
+                  borderRadius: '6px',
+                  fontSize: '1em',
+                  boxSizing: 'border-box'
+                }}
+              >
+                <option value="open">Open</option>
+                <option value="closed">Closed</option>
+                <option value="flagged">Flagged</option>
+                <option value="pending">Pending</option>
+                <option value="in-progress">In Progress</option>
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#4a5568' }}>
+                Assigned To
+              </label>
+              <input
+                type="text"
+                value={newCase.assigned_to}
+                onChange={(e) => setNewCase({ ...newCase, assigned_to: e.target.value })}
+                placeholder="Enter assignee name"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  border: '1px solid #cbd5e0',
+                  borderRadius: '6px',
+                  fontSize: '1em',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#4a5568' }}>
+                Disposition
+              </label>
+              <select
+                value={newCase.disposition}
+                onChange={(e) => setNewCase({ ...newCase, disposition: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  border: '1px solid #cbd5e0',
+                  borderRadius: '6px',
+                  fontSize: '1em',
+                  boxSizing: 'border-box'
+                }}
+              >
+                <option value="">Select disposition...</option>
+                <option value="dismissed">Dismissed</option>
+                <option value="plea">Plea</option>
+                <option value="settlement">Settlement</option>
+                <option value="probation">Probation</option>
+                <option value="trial">Trial</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => {
+                  setShowAddCaseModal(false);
+                  setNewCase({
+                    name: '',
+                    number: '',
+                    status: 'open',
+                    assigned_to: '',
+                    disposition: ''
+                  });
+                }}
+                style={{
+                  padding: '10px 20px',
+                  background: '#e2e8f0',
+                  color: '#2d3748',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddCase}
+                style={{
+                  padding: '10px 20px',
+                  background: '#48bb78',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                Create Case
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
