@@ -11,6 +11,9 @@ export default function Dashboard({ onOpenCase, user }) {
   const [approachingCases, setApproachingCases] = useState([]);
   const [showRetentionPanel, setShowRetentionPanel] = useState(false);
   const [showAddCaseModal, setShowAddCaseModal] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [activeView, setActiveView] = useState('dashboard');
+  const [showSearch, setShowSearch] = useState(false);
   const [newCase, setNewCase] = useState({
     name: '',
     number: '',
@@ -154,7 +157,7 @@ export default function Dashboard({ onOpenCase, user }) {
         display: 'flex', 
         justifyContent: 'center', 
         alignItems: 'center', 
-        height: '400px',
+        height: '100vh',
         color: '#718096' 
       }}>
         <div>
@@ -166,18 +169,291 @@ export default function Dashboard({ onOpenCase, user }) {
   }
 
   return (
-    <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px' }}>
-      {/* Global Search */}
-      <div style={{marginBottom:32}}>
-        <GlobalSearch
-          cases={cases}
-          documents={documents}
-          onNavigate={(item) => {
-            if (item.type === "Case") onOpenCase(item.id);
-            if (item.type === "Document") onOpenCase(item.case_id);
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', background: '#f7fafc' }}>
+      {/* Top Navigation Bar */}
+      <div style={{
+        height: '64px',
+        background: '#fff',
+        borderBottom: '1px solid #e2e8f0',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 24px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+        zIndex: 200,
+        gap: '24px'
+      }}>
+        {/* Left Section - Logo/Brand */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ fontSize: '1.5em' }}>⚖️</div>
+          <div style={{ fontWeight: '700', fontSize: '1.2em', color: '#2d3748', whiteSpace: 'nowrap' }}>
+            eDiscovery
+          </div>
+        </div>
+
+        {/* Center Section - Global Search */}
+        <div style={{ flex: 1, maxWidth: '600px' }}>
+          <GlobalSearch
+            cases={cases}
+            documents={documents}
+            onNavigate={(item) => {
+              if (item.type === "Case") onOpenCase(item.id);
+              if (item.type === "Document") onOpenCase(item.case_id);
+            }}
+          />
+        </div>
+
+        {/* Right Section - Actions & User */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          {/* Add Case Button */}
+          {user && canAccess(user.role, 'create', 'case') && (
+            <button
+              onClick={() => setShowAddCaseModal(true)}
+              style={{
+                padding: '10px 20px',
+                background: '#48bb78',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontSize: '0.95em',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'background 0.2s',
+                whiteSpace: 'nowrap'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#38a169'}
+              onMouseLeave={(e) => e.currentTarget.style.background = '#48bb78'}
+            >
+              <span style={{ fontSize: '1.2em' }}>+</span>
+              Add Case
+            </button>
+          )}
+
+          {/* Notifications */}
+          <button style={{
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: '1.3em',
+            padding: '8px',
+            borderRadius: '6px',
+            transition: 'background 0.2s'
           }}
-        />
+          onMouseEnter={(e) => e.currentTarget.style.background = '#f7fafc'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+          title="Notifications">
+            🔔
+          </button>
+
+          {/* Settings */}
+          <button style={{
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: '1.3em',
+            padding: '8px',
+            borderRadius: '6px',
+            transition: 'background 0.2s'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = '#f7fafc'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+          title="Settings">
+            ⚙️
+          </button>
+
+          {/* User Avatar/Profile */}
+          {user && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '6px 12px',
+              background: '#f7fafc',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              transition: 'background 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#edf2f7'}
+            onMouseLeave={(e) => e.currentTarget.style.background = '#f7fafc'}>
+              <div style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: '#2166e8',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: '700',
+                fontSize: '0.9em'
+              }}>
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+              <div style={{ fontSize: '0.9em' }}>
+                <div style={{ fontWeight: '600', color: '#2d3748' }}>{user.name}</div>
+                <div style={{ fontSize: '0.85em', color: '#718096', textTransform: 'capitalize' }}>
+                  {user.role}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Main Layout Container */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      {/* Left Sidebar */}
+      <div style={{
+        width: sidebarCollapsed ? '60px' : '240px',
+        background: '#2d3748',
+        transition: 'width 0.3s ease',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: '2px 0 8px rgba(0,0,0,0.1)',
+        zIndex: 100
+      }}>
+        {/* Top Menu Toggle Button */}
+        <button
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          style={{
+            padding: '20px',
+            background: 'transparent',
+            border: 'none',
+            color: '#fff',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+            transition: 'background 0.2s',
+            fontSize: '1.2em'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = '#4a5568'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+        >
+          <span style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ width: '24px', height: '3px', background: '#fff', borderRadius: '2px' }}></div>
+            <div style={{ width: '24px', height: '3px', background: '#fff', borderRadius: '2px' }}></div>
+            <div style={{ width: '24px', height: '3px', background: '#fff', borderRadius: '2px' }}></div>
+          </span>
+          {!sidebarCollapsed && <span style={{ marginLeft: '12px', fontSize: '0.9em' }}>Menu</span>}
+        </button>
+
+        {/* Navigation Menu */}
+        <div style={{ flex: 1, padding: '10px 0' }}>
+          {/* Dashboard Button */}
+          <button
+            onClick={() => setActiveView('dashboard')}
+            style={{
+              width: '100%',
+              padding: '16px 20px',
+              background: activeView === 'dashboard' ? '#2166e8' : 'transparent',
+              border: 'none',
+              borderLeft: activeView === 'dashboard' ? '4px solid #fff' : '4px solid transparent',
+              color: '#fff',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+              gap: '12px',
+              transition: 'all 0.2s',
+              fontSize: '1em'
+            }}
+            onMouseEnter={(e) => {
+              if (activeView !== 'dashboard') e.currentTarget.style.background = '#4a5568';
+            }}
+            onMouseLeave={(e) => {
+              if (activeView !== 'dashboard') e.currentTarget.style.background = 'transparent';
+            }}
+          >
+            <span style={{ fontSize: '1.3em' }}>📊</span>
+            {!sidebarCollapsed && <span>Dashboard</span>}
+          </button>
+
+          {/* Search Button */}
+          <button
+            onClick={() => setShowSearch(!showSearch)}
+            style={{
+              width: '100%',
+              padding: '16px 20px',
+              background: showSearch ? '#2166e8' : 'transparent',
+              border: 'none',
+              borderLeft: showSearch ? '4px solid #fff' : '4px solid transparent',
+              color: '#fff',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+              gap: '12px',
+              transition: 'all 0.2s',
+              fontSize: '1em'
+            }}
+            onMouseEnter={(e) => {
+              if (!showSearch) e.currentTarget.style.background = '#4a5568';
+            }}
+            onMouseLeave={(e) => {
+              if (!showSearch) e.currentTarget.style.background = 'transparent';
+            }}
+          >
+            <span style={{ fontSize: '1.3em' }}>🔍</span>
+            {!sidebarCollapsed && <span>Search</span>}
+          </button>
+
+          {/* Cases Button */}
+          <button
+            onClick={() => setActiveView('cases')}
+            style={{
+              width: '100%',
+              padding: '16px 20px',
+              background: activeView === 'cases' ? '#2166e8' : 'transparent',
+              border: 'none',
+              borderLeft: activeView === 'cases' ? '4px solid #fff' : '4px solid transparent',
+              color: '#fff',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+              gap: '12px',
+              transition: 'all 0.2s',
+              fontSize: '1em'
+            }}
+            onMouseEnter={(e) => {
+              if (activeView !== 'cases') e.currentTarget.style.background = '#4a5568';
+            }}
+            onMouseLeave={(e) => {
+              if (activeView !== 'cases') e.currentTarget.style.background = 'transparent';
+            }}
+          >
+            <span style={{ fontSize: '1.3em' }}>📁</span>
+            {!sidebarCollapsed && <span>Cases</span>}
+          </button>
+        </div>
+
+        {/* User Info at Bottom */}
+        {!sidebarCollapsed && user && (
+          <div style={{
+            padding: '20px',
+            borderTop: '1px solid #4a5568',
+            color: '#cbd5e0',
+            fontSize: '0.85em'
+          }}>
+            <div style={{ fontWeight: '600', marginBottom: '4px' }}>{user.name}</div>
+            <div style={{ textTransform: 'capitalize', color: '#a0aec0' }}>{user.role}</div>
+          </div>
+        )}
+      </div>
+
+      {/* Main Content Area */}
+      <div style={{ 
+        flex: 1, 
+        overflowY: 'auto', 
+        padding: '32px',
+        background: '#f7fafc'
+      }}>
+        {/* Dashboard Content */}
+        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
 
       {/* Statistics Overview */}
       <div style={{
@@ -433,38 +709,7 @@ export default function Dashboard({ onOpenCase, user }) {
         padding: '20px',
         boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
       }}>
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          marginBottom: '20px'
-        }}>
-          <h3 style={{ margin: 0, color: '#2d3748' }}>Cases</h3>
-          {user && canAccess(user.role, 'create', 'case') && (
-            <button
-              onClick={() => setShowAddCaseModal(true)}
-              style={{
-                padding: '10px 20px',
-                background: '#48bb78',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: '600',
-                fontSize: '0.95em',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                transition: 'background 0.2s'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = '#38a169'}
-              onMouseLeave={(e) => e.currentTarget.style.background = '#48bb78'}
-            >
-              <span style={{ fontSize: '1.2em' }}>+</span>
-              Add Case
-            </button>
-          )}
-        </div>
+        <h3 style={{ margin: '0 0 20px 0', color: '#2d3748' }}>Cases</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {cases.map(c => (
             <div 
@@ -927,6 +1172,9 @@ export default function Dashboard({ onOpenCase, user }) {
           </div>
         </div>
       )}
+        </div>
+      </div>
+      </div>
     </div>
   );
 }
