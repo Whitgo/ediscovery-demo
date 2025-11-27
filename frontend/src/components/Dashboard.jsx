@@ -17,6 +17,15 @@ export default function Dashboard({ onOpenCase, user }) {
   const [selectedCase, setSelectedCase] = useState(null);
   const [caseNotes, setCaseNotes] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadFiles, setUploadFiles] = useState([]);
+  const [dragActive, setDragActive] = useState(false);
+  const [uploadConfig, setUploadConfig] = useState({
+    caseId: '',
+    custodian: '',
+    autoTag: true
+  });
+  const [uploading, setUploading] = useState(false);
   const [newCase, setNewCase] = useState({
     name: '',
     number: '',
@@ -176,6 +185,130 @@ export default function Dashboard({ onOpenCase, user }) {
     }
   };
 
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const newFiles = Array.from(e.dataTransfer.files);
+      setUploadFiles(prev => [...prev, ...newFiles]);
+    }
+  };
+
+  const handleFileInput = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const newFiles = Array.from(e.target.files);
+      setUploadFiles(prev => [...prev, ...newFiles]);
+    }
+  };
+
+  const removeFile = (index) => {
+    setUploadFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const getFileType = (filename) => {
+    const ext = filename.split('.').pop().toLowerCase();
+    const typeMap = {
+      pdf: 'PDF Document',
+      doc: 'Word Document',
+      docx: 'Word Document',
+      xls: 'Excel Spreadsheet',
+      xlsx: 'Excel Spreadsheet',
+      ppt: 'PowerPoint',
+      pptx: 'PowerPoint',
+      txt: 'Text File',
+      jpg: 'Image',
+      jpeg: 'Image',
+      png: 'Image',
+      gif: 'Image',
+      zip: 'Archive',
+      msg: 'Email Message',
+      eml: 'Email Message'
+    };
+    return typeMap[ext] || 'Unknown';
+  };
+
+  const handleBatchUpload = async () => {
+    if (uploadFiles.length === 0) {
+      alert('Please select files to upload');
+      return;
+    }
+    if (!uploadConfig.caseId) {
+      alert('Please select a case');
+      return;
+    }
+
+    setUploading(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const file of uploadFiles) {
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('case_id', uploadConfig.caseId);
+        
+        // Auto-tagging
+        if (uploadConfig.autoTag) {
+          const fileType = getFileType(file.name);
+          const tags = [fileType];
+          if (uploadConfig.custodian) {
+            tags.push(`Custodian: ${uploadConfig.custodian}`);
+          }
+          formData.append('tags', JSON.stringify(tags));
+        }
+
+        const response = await fetch('http://localhost:4443/api/documents/upload', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: formData
+        });
+
+        if (response.ok) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (error) {
+        console.error('Upload error:', error);
+        failCount++;
+      }
+    }
+
+    setUploading(false);
+    alert(`Upload complete!\nSuccessful: ${successCount}\nFailed: ${failCount}`);
+    
+    if (successCount > 0) {
+      // Reload documents
+      const allDocs = [];
+      for (const c of cases) {
+        try {
+          const caseDocs = await apiGet(`/documents/case/${c.id}/documents`);
+          allDocs.push(...caseDocs);
+        } catch {}
+      }
+      setDocuments(allDocs);
+      
+      // Reset upload state
+      setUploadFiles([]);
+      setUploadConfig({ caseId: '', custodian: '', autoTag: true });
+      setShowUploadModal(false);
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ 
@@ -230,6 +363,33 @@ export default function Dashboard({ onOpenCase, user }) {
 
         {/* Right Section - Actions & User */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          {/* Upload Button */}
+          {user && canAccess(user.role, 'create', 'document') && (
+            <button
+              onClick={() => setShowUploadModal(true)}
+              style={{
+                padding: '10px 20px',
+                background: '#4299e1',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontSize: '0.95em',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'background 0.2s',
+                whiteSpace: 'nowrap'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#3182ce'}
+              onMouseLeave={(e) => e.currentTarget.style.background = '#4299e1'}
+            >
+              <span style={{ fontSize: '1.2em' }}>📤</span>
+              Upload
+            </button>
+          )}
+
           {/* Add Case Button */}
           {user && canAccess(user.role, 'create', 'case') && (
             <button
@@ -1415,6 +1575,239 @@ export default function Dashboard({ onOpenCase, user }) {
                 }}
               >
                 Create Case
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload & Ingest Modal */}
+      {showUploadModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '8px',
+            padding: '24px',
+            maxWidth: '700px',
+            width: '90%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+          }}>
+            <h3 style={{ margin: '0 0 20px 0', color: '#2d3748', fontSize: '1.5em' }}>
+              📤 Upload & Ingest Documents
+            </h3>
+            
+            {/* Configuration Section */}
+            <div style={{ marginBottom: '24px', padding: '16px', background: '#f7fafc', borderRadius: '8px' }}>
+              <h4 style={{ margin: '0 0 16px 0', color: '#2d3748', fontSize: '1.1em' }}>Upload Configuration</h4>
+              
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#4a5568' }}>
+                  Select Case *
+                </label>
+                <select
+                  value={uploadConfig.caseId}
+                  onChange={(e) => setUploadConfig({ ...uploadConfig, caseId: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #cbd5e0',
+                    borderRadius: '6px',
+                    fontSize: '1em',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  <option value="">Choose a case...</option>
+                  {cases.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} (#{c.number})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#4a5568' }}>
+                  Custodian (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={uploadConfig.custodian}
+                  onChange={(e) => setUploadConfig({ ...uploadConfig, custodian: e.target.value })}
+                  placeholder="e.g., John Doe"
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #cbd5e0',
+                    borderRadius: '6px',
+                    fontSize: '1em',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="checkbox"
+                  id="autoTag"
+                  checked={uploadConfig.autoTag}
+                  onChange={(e) => setUploadConfig({ ...uploadConfig, autoTag: e.target.checked })}
+                  style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                />
+                <label htmlFor="autoTag" style={{ fontWeight: '600', color: '#4a5568', cursor: 'pointer' }}>
+                  Enable auto-tagging by case, custodian, and file type
+                </label>
+              </div>
+            </div>
+
+            {/* Drag & Drop Upload Area */}
+            <div
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+              style={{
+                border: dragActive ? '3px dashed #4299e1' : '2px dashed #cbd5e0',
+                borderRadius: '8px',
+                padding: '40px 20px',
+                textAlign: 'center',
+                marginBottom: '20px',
+                background: dragActive ? '#ebf8ff' : '#f7fafc',
+                transition: 'all 0.2s',
+                cursor: 'pointer'
+              }}
+              onClick={() => document.getElementById('fileInput').click()}
+            >
+              <div style={{ fontSize: '3em', marginBottom: '12px' }}>📁</div>
+              <div style={{ fontSize: '1.1em', fontWeight: '600', color: '#2d3748', marginBottom: '8px' }}>
+                Drag & drop files here
+              </div>
+              <div style={{ color: '#718096', marginBottom: '12px' }}>
+                or click to browse
+              </div>
+              <div style={{ fontSize: '0.9em', color: '#a0aec0' }}>
+                Supports: PDF, DOC, XLS, PPT, Images, Email files (MSG, EML)
+              </div>
+              <input
+                id="fileInput"
+                type="file"
+                multiple
+                onChange={handleFileInput}
+                style={{ display: 'none' }}
+              />
+            </div>
+
+            {/* Selected Files List */}
+            {uploadFiles.length > 0 && (
+              <div style={{ marginBottom: '20px' }}>
+                <h4 style={{ margin: '0 0 12px 0', color: '#2d3748' }}>
+                  Selected Files ({uploadFiles.length})
+                </h4>
+                <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px' }}>
+                  {uploadFiles.map((file, index) => (
+                    <div key={index} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '8px 12px',
+                      background: '#f7fafc',
+                      borderRadius: '4px',
+                      marginBottom: '8px'
+                    }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '600', color: '#2d3748', fontSize: '0.95em' }}>
+                          {file.name}
+                        </div>
+                        <div style={{ fontSize: '0.85em', color: '#718096' }}>
+                          {getFileType(file.name)} • {(file.size / 1024 / 1024).toFixed(2)} MB
+                          {uploadConfig.autoTag && (
+                            <span style={{ marginLeft: '8px', color: '#4299e1' }}>
+                              🏷️ Auto-tagged
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => removeFile(index)}
+                        style={{
+                          background: '#f56565',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '6px 12px',
+                          cursor: 'pointer',
+                          fontSize: '0.9em',
+                          fontWeight: '600'
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => {
+                  setShowUploadModal(false);
+                  setUploadFiles([]);
+                  setUploadConfig({ caseId: '', custodian: '', autoTag: true });
+                }}
+                disabled={uploading}
+                style={{
+                  padding: '10px 20px',
+                  background: uploading ? '#cbd5e0' : '#e2e8f0',
+                  color: '#2d3748',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: uploading ? 'not-allowed' : 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBatchUpload}
+                disabled={uploading || uploadFiles.length === 0 || !uploadConfig.caseId}
+                style={{
+                  padding: '10px 20px',
+                  background: uploading || uploadFiles.length === 0 || !uploadConfig.caseId ? '#cbd5e0' : '#4299e1',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: uploading || uploadFiles.length === 0 || !uploadConfig.caseId ? 'not-allowed' : 'pointer',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                {uploading ? (
+                  <>
+                    <span>⏳</span>
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <span>📤</span>
+                    Upload {uploadFiles.length} {uploadFiles.length === 1 ? 'File' : 'Files'}
+                  </>
+                )}
               </button>
             </div>
           </div>
