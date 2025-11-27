@@ -234,7 +234,9 @@ export default function Dashboard({ onOpenCase, user }) {
       gif: 'Image',
       zip: 'Archive',
       msg: 'Email Message',
-      eml: 'Email Message'
+      eml: 'Email Message',
+      mp4: 'Video',
+      mov: 'Video'
     };
     return typeMap[ext] || 'Unknown';
   };
@@ -1698,7 +1700,7 @@ export default function Dashboard({ onOpenCase, user }) {
                 or click to browse
               </div>
               <div style={{ fontSize: '0.9em', color: '#a0aec0' }}>
-                Supports: PDF, DOC, XLS, PPT, Images, Email files (MSG, EML)
+                Supports: PDF, DOC, XLS, PPT, Images, Videos (MP4, MOV), Email files (MSG, EML)
               </div>
               <input
                 id="fileInput"
