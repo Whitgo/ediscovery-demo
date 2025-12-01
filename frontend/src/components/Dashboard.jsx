@@ -26,6 +26,8 @@ export default function Dashboard({ onOpenCase, user }) {
     autoTag: true
   });
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [currentUploadFile, setCurrentUploadFile] = useState('');
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [newCase, setNewCase] = useState({
@@ -263,10 +265,14 @@ export default function Dashboard({ onOpenCase, user }) {
     }
 
     setUploading(true);
+    setUploadProgress(0);
     let successCount = 0;
     let failCount = 0;
 
-    for (const file of uploadFiles) {
+    for (let i = 0; i < uploadFiles.length; i++) {
+      const file = uploadFiles[i];
+      setCurrentUploadFile(file.name);
+      
       try {
         const formData = new FormData();
         formData.append('file', file);
@@ -279,7 +285,7 @@ export default function Dashboard({ onOpenCase, user }) {
           if (uploadConfig.custodian) {
             tags.push(`Custodian: ${uploadConfig.custodian}`);
           }
-          formData.append('tags', JSON.stringify(tags));
+          formData.append('tags', JSON.dumps(tags));
         }
 
         const response = await fetch('http://localhost:4443/api/documents/upload', {
@@ -299,9 +305,14 @@ export default function Dashboard({ onOpenCase, user }) {
         console.error('Upload error:', error);
         failCount++;
       }
+      
+      // Update progress
+      setUploadProgress(Math.round(((i + 1) / uploadFiles.length) * 100));
     }
 
     setUploading(false);
+    setUploadProgress(0);
+    setCurrentUploadFile('');
     alert(`Upload complete!\nSuccessful: ${successCount}\nFailed: ${failCount}`);
     
     if (successCount > 0) {
@@ -572,6 +583,7 @@ export default function Dashboard({ onOpenCase, user }) {
           </span>
           {!sidebarCollapsed && <span style={{ marginLeft: '12px', fontSize: '0.9em' }}>Menu</span>}
         </button>
+        )}
 
         {/* Navigation Menu */}
         <div style={{ flex: 1, padding: '10px 0' }}>
@@ -1737,26 +1749,24 @@ export default function Dashboard({ onOpenCase, user }) {
               onDragLeave={handleDrag}
               onDragOver={handleDrag}
               onDrop={handleDrop}
-              style={{
-                border: dragActive ? '3px dashed #4299e1' : '2px dashed #cbd5e0',
-                borderRadius: '8px',
-                padding: '40px 20px',
-                textAlign: 'center',
-                marginBottom: '20px',
-                background: dragActive ? '#ebf8ff' : '#f7fafc',
-                transition: 'all 0.2s',
-                cursor: 'pointer'
-              }}
+              className={`
+                relative border-2 border-dashed rounded-lg p-10 text-center mb-5 
+                transition-all duration-200 cursor-pointer
+                ${dragActive 
+                  ? 'border-blue-500 bg-blue-50 border-4' 
+                  : 'border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-gray-100'
+                }
+              `}
               onClick={() => document.getElementById('fileInput').click()}
             >
-              <div style={{ fontSize: '3em', marginBottom: '12px' }}>📁</div>
-              <div style={{ fontSize: '1.1em', fontWeight: '600', color: '#2d3748', marginBottom: '8px' }}>
+              <div className="text-5xl mb-3">📁</div>
+              <div className="text-lg font-semibold text-gray-800 mb-2">
                 Drag & drop files here
               </div>
-              <div style={{ color: '#718096', marginBottom: '12px' }}>
+              <div className="text-gray-600 mb-3">
                 or click to browse
               </div>
-              <div style={{ fontSize: '0.9em', color: '#a0aec0' }}>
+              <div className="text-sm text-gray-500">
                 Supports: PDF, DOC, XLS, PPT, Images, Videos (MP4, MOV), Email files (MSG, EML)
               </div>
               <input
@@ -1764,35 +1774,55 @@ export default function Dashboard({ onOpenCase, user }) {
                 type="file"
                 multiple
                 onChange={handleFileInput}
-                style={{ display: 'none' }}
+                className="hidden"
               />
             </div>
 
+            {/* Upload Progress Bar */}
+            {uploading && (
+              <div className="mb-5">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-gray-700">
+                    Uploading: {currentUploadFile}
+                  </span>
+                  <span className="text-sm font-medium text-blue-600">
+                    {uploadProgress}%
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                  <div 
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${uploadProgress}%` }}
+                  >
+                    <div className="h-full w-full bg-white opacity-20 animate-pulse"></div>
+                  </div>
+                </div>
+                <div className="text-xs text-gray-500 mt-1 text-center">
+                  {Math.round((uploadProgress / 100) * uploadFiles.length)} of {uploadFiles.length} files uploaded
+                </div>
+              </div>
+            )}
+
             {/* Selected Files List */}
-            {uploadFiles.length > 0 && (
-              <div style={{ marginBottom: '20px' }}>
-                <h4 style={{ margin: '0 0 12px 0', color: '#2d3748' }}>
+            {uploadFiles.length > 0 && !uploading && (
+              <div className="mb-5">
+                <h4 className="text-base font-semibold text-gray-800 mb-3">
                   Selected Files ({uploadFiles.length})
                 </h4>
-                <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px' }}>
+                <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-2">
                   {uploadFiles.map((file, index) => (
-                    <div key={index} style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '8px 12px',
-                      background: '#f7fafc',
-                      borderRadius: '4px',
-                      marginBottom: '8px'
-                    }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '600', color: '#2d3748', fontSize: '0.95em' }}>
+                    <div 
+                      key={index} 
+                      className="flex justify-between items-center p-3 bg-gray-50 rounded-md mb-2 hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-gray-800 text-sm truncate">
                           {file.name}
                         </div>
-                        <div style={{ fontSize: '0.85em', color: '#718096' }}>
+                        <div className="text-xs text-gray-600 mt-1">
                           {getFileType(file.name)} • {(file.size / 1024 / 1024).toFixed(2)} MB
                           {uploadConfig.autoTag && (
-                            <span style={{ marginLeft: '8px', color: '#4299e1' }}>
+                            <span className="ml-2 text-blue-600">
                               🏷️ Auto-tagged
                             </span>
                           )}
@@ -1800,16 +1830,7 @@ export default function Dashboard({ onOpenCase, user }) {
                       </div>
                       <button
                         onClick={() => removeFile(index)}
-                        style={{
-                          background: '#f56565',
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: '4px',
-                          padding: '6px 12px',
-                          cursor: 'pointer',
-                          fontSize: '0.9em',
-                          fontWeight: '600'
-                        }}
+                        className="ml-3 bg-red-500 hover:bg-red-600 text-white font-semibold py-1.5 px-3 rounded transition-colors text-sm flex-shrink-0"
                       >
                         Remove
                       </button>
