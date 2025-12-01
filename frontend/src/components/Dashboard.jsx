@@ -26,6 +26,8 @@ export default function Dashboard({ onOpenCase, user }) {
     autoTag: true
   });
   const [uploading, setUploading] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [newCase, setNewCase] = useState({
     name: '',
     number: '',
@@ -80,6 +82,15 @@ export default function Dashboard({ onOpenCase, user }) {
     }
     load();
   }, [user]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const calculateStats = (caseList, docList) => {
     const stats = {
@@ -338,39 +349,61 @@ export default function Dashboard({ onOpenCase, user }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '0 24px',
+        padding: isMobile ? '0 12px' : '0 24px',
         boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
         zIndex: 200,
-        gap: '24px'
+        gap: isMobile ? '8px' : '24px'
       }}>
+        {/* Mobile Menu Toggle */}
+        {isMobile && (
+          <button
+            onClick={() => setShowMobileMenu(!showMobileMenu)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '1.5em',
+              padding: '8px',
+              display: 'flex',
+              alignItems: 'center'
+            }}
+          >
+            ☰
+          </button>
+        )}
+
         {/* Left Section - Logo/Brand */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div style={{ fontSize: '1.5em' }}>⚖️</div>
-          <div style={{ fontWeight: '700', fontSize: '1.2em', color: '#2d3748', whiteSpace: 'nowrap' }}>
-            eDiscovery
-          </div>
+          {!isMobile && (
+            <div style={{ fontWeight: '700', fontSize: '1.2em', color: '#2d3748', whiteSpace: 'nowrap' }}>
+              eDiscovery
+            </div>
+          )}
         </div>
 
-        {/* Center Section - Global Search */}
-        <div style={{ flex: 1, maxWidth: '600px' }}>
-          <GlobalSearch
-            cases={cases}
-            documents={documents}
-            onNavigate={(item) => {
-              if (item.type === "Case") onOpenCase(item.id);
-              if (item.type === "Document") onOpenCase(item.case_id);
-            }}
-          />
-        </div>
+        {/* Center Section - Global Search (Hidden on mobile) */}
+        {!isMobile && (
+          <div style={{ flex: 1, maxWidth: '600px' }}>
+            <GlobalSearch
+              cases={cases}
+              documents={documents}
+              onNavigate={(item) => {
+                if (item.type === "Case") onOpenCase(item.id);
+                if (item.type === "Document") onOpenCase(item.case_id);
+              }}
+            />
+          </div>
+        )}
 
         {/* Right Section - Actions & User */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '16px' }}>
           {/* Upload Button */}
           {user && canAccess(user.role, 'create', 'document') && (
             <button
               onClick={() => setShowUploadModal(true)}
               style={{
-                padding: '10px 20px',
+                padding: isMobile ? '8px' : '10px 20px',
                 background: '#4299e1',
                 color: '#fff',
                 border: 'none',
@@ -388,7 +421,7 @@ export default function Dashboard({ onOpenCase, user }) {
               onMouseLeave={(e) => e.currentTarget.style.background = '#4299e1'}
             >
               <span style={{ fontSize: '1.2em' }}>📤</span>
-              Upload
+              {!isMobile && 'Upload'}
             </button>
           )}
 
@@ -397,7 +430,7 @@ export default function Dashboard({ onOpenCase, user }) {
             <button
               onClick={() => setShowAddCaseModal(true)}
               style={{
-                padding: '10px 20px',
+                padding: isMobile ? '8px' : '10px 20px',
                 background: '#48bb78',
                 color: '#fff',
                 border: 'none',
@@ -415,41 +448,45 @@ export default function Dashboard({ onOpenCase, user }) {
               onMouseLeave={(e) => e.currentTarget.style.background = '#48bb78'}
             >
               <span style={{ fontSize: '1.2em' }}>+</span>
-              Add Case
+              {!isMobile && 'Add Case'}
             </button>
           )}
 
-          {/* Notifications */}
-          <button style={{
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            fontSize: '1.3em',
-            padding: '8px',
-            borderRadius: '6px',
-            transition: 'background 0.2s'
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.background = '#f7fafc'}
-          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-          title="Notifications">
-            🔔
-          </button>
+          {/* Notifications - Hide on mobile */}
+          {!isMobile && (
+            <button style={{
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '1.3em',
+              padding: '8px',
+              borderRadius: '6px',
+              transition: 'background 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#f7fafc'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+            title="Notifications">
+              🔔
+            </button>
+          )}
 
-          {/* Settings */}
-          <button style={{
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            fontSize: '1.3em',
-            padding: '8px',
-            borderRadius: '6px',
-            transition: 'background 0.2s'
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.background = '#f7fafc'}
-          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-          title="Settings">
-            ⚙️
-          </button>
+          {/* Settings - Hide on mobile */}
+          {!isMobile && (
+            <button style={{
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '1.3em',
+              padding: '8px',
+              borderRadius: '6px',
+              transition: 'background 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#f7fafc'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+            title="Settings">
+              ⚙️
+            </button>
+          )}
 
           {/* User Avatar/Profile */}
           {user && (
@@ -479,12 +516,14 @@ export default function Dashboard({ onOpenCase, user }) {
               }}>
                 {user.name.charAt(0).toUpperCase()}
               </div>
-              <div style={{ fontSize: '0.9em' }}>
-                <div style={{ fontWeight: '600', color: '#2d3748' }}>{user.name}</div>
-                <div style={{ fontSize: '0.85em', color: '#718096', textTransform: 'capitalize' }}>
-                  {user.role}
+              {!isMobile && (
+                <div style={{ fontSize: '0.9em' }}>
+                  <div style={{ fontWeight: '600', color: '#2d3748' }}>{user.name}</div>
+                  <div style={{ fontSize: '0.85em', color: '#718096', textTransform: 'capitalize' }}>
+                    {user.role}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </div>
@@ -492,17 +531,23 @@ export default function Dashboard({ onOpenCase, user }) {
 
       {/* Main Layout Container */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-      {/* Left Sidebar */}
+      {/* Left Sidebar - Hidden on mobile unless menu is open */}
+      {(!isMobile || showMobileMenu) && (
       <div style={{
-        width: sidebarCollapsed ? '60px' : '240px',
+        width: isMobile ? '100%' : (sidebarCollapsed ? '60px' : '240px'),
         background: '#2d3748',
         transition: 'width 0.3s ease',
         display: 'flex',
         flexDirection: 'column',
         boxShadow: '2px 0 8px rgba(0,0,0,0.1)',
-        zIndex: 100
+        zIndex: isMobile ? 300 : 100,
+        position: isMobile ? 'fixed' : 'relative',
+        height: isMobile ? 'calc(100vh - 64px)' : 'auto',
+        top: isMobile ? '64px' : 'auto',
+        left: isMobile ? '0' : 'auto'
       }}>
         {/* Top Menu Toggle Button */}
+        {!isMobile && (
         <button
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
           style={{
@@ -532,7 +577,10 @@ export default function Dashboard({ onOpenCase, user }) {
         <div style={{ flex: 1, padding: '10px 0' }}>
           {/* Dashboard Button */}
           <button
-            onClick={() => setActiveView('dashboard')}
+            onClick={() => {
+              setActiveView('dashboard');
+              if (isMobile) setShowMobileMenu(false);
+            }}
             style={{
               width: '100%',
               padding: '16px 20px',
@@ -543,7 +591,7 @@ export default function Dashboard({ onOpenCase, user }) {
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+              justifyContent: (sidebarCollapsed && !isMobile) ? 'center' : 'flex-start',
               gap: '12px',
               transition: 'all 0.2s',
               fontSize: '1em'
@@ -556,12 +604,15 @@ export default function Dashboard({ onOpenCase, user }) {
             }}
           >
             <span style={{ fontSize: '1.3em' }}>📊</span>
-            {!sidebarCollapsed && <span>Dashboard</span>}
+            {(!sidebarCollapsed || isMobile) && <span>Dashboard</span>}
           </button>
 
           {/* Search Button */}
           <button
-            onClick={() => setShowSearch(!showSearch)}
+            onClick={() => {
+              setShowSearch(!showSearch);
+              if (isMobile) setShowMobileMenu(false);
+            }}
             style={{
               width: '100%',
               padding: '16px 20px',
@@ -572,7 +623,7 @@ export default function Dashboard({ onOpenCase, user }) {
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+              justifyContent: (sidebarCollapsed && !isMobile) ? 'center' : 'flex-start',
               gap: '12px',
               transition: 'all 0.2s',
               fontSize: '1em'
@@ -585,12 +636,15 @@ export default function Dashboard({ onOpenCase, user }) {
             }}
           >
             <span style={{ fontSize: '1.3em' }}>🔍</span>
-            {!sidebarCollapsed && <span>Search</span>}
+            {(!sidebarCollapsed || isMobile) && <span>Search</span>}
           </button>
 
           {/* Cases Button */}
           <button
-            onClick={() => setActiveView('cases')}
+            onClick={() => {
+              setActiveView('cases');
+              if (isMobile) setShowMobileMenu(false);
+            }}
             style={{
               width: '100%',
               padding: '16px 20px',
@@ -601,7 +655,7 @@ export default function Dashboard({ onOpenCase, user }) {
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+              justifyContent: (sidebarCollapsed && !isMobile) ? 'center' : 'flex-start',
               gap: '12px',
               transition: 'all 0.2s',
               fontSize: '1em'
@@ -614,12 +668,12 @@ export default function Dashboard({ onOpenCase, user }) {
             }}
           >
             <span style={{ fontSize: '1.3em' }}>📁</span>
-            {!sidebarCollapsed && <span>Cases</span>}
+            {(!sidebarCollapsed || isMobile) && <span>Cases</span>}
           </button>
         </div>
 
         {/* User Info at Bottom */}
-        {!sidebarCollapsed && user && (
+        {(!sidebarCollapsed || isMobile) && user && (
           <div style={{
             padding: '20px',
             borderTop: '1px solid #4a5568',
@@ -631,12 +685,13 @@ export default function Dashboard({ onOpenCase, user }) {
           </div>
         )}
       </div>
+      )}
 
       {/* Main Content Area */}
       <div style={{ 
         flex: 1, 
         overflowY: 'auto', 
-        padding: '32px',
+        padding: isMobile ? '16px' : '32px',
         background: '#f7fafc'
       }}>
         {/* Dashboard Content */}
@@ -728,7 +783,7 @@ export default function Dashboard({ onOpenCase, user }) {
             </div>
 
             {/* Bottom Section: Two Columns */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 400px', gap: '24px' }}>
               
               {/* 2. Search & Document List */}
               <div style={{
@@ -1421,11 +1476,12 @@ export default function Dashboard({ onOpenCase, user }) {
         }}>
           <div style={{
             background: '#fff',
-            borderRadius: '8px',
-            padding: '24px',
-            maxWidth: '500px',
-            width: '90%',
-            maxHeight: '90vh',
+            borderRadius: isMobile ? '0' : '8px',
+            padding: isMobile ? '16px' : '24px',
+            maxWidth: isMobile ? '100%' : '500px',
+            width: isMobile ? '100%' : '90%',
+            maxHeight: isMobile ? '100%' : '90vh',
+            height: isMobile ? '100%' : 'auto',
             overflowY: 'auto',
             boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
           }}>
@@ -1599,11 +1655,12 @@ export default function Dashboard({ onOpenCase, user }) {
         }}>
           <div style={{
             background: '#fff',
-            borderRadius: '8px',
-            padding: '24px',
-            maxWidth: '700px',
-            width: '90%',
-            maxHeight: '90vh',
+            borderRadius: isMobile ? '0' : '8px',
+            padding: isMobile ? '16px' : '24px',
+            maxWidth: isMobile ? '100%' : '700px',
+            width: isMobile ? '100%' : '90%',
+            maxHeight: isMobile ? '100%' : '90vh',
+            height: isMobile ? '100%' : 'auto',
             overflowY: 'auto',
             boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
           }}>
