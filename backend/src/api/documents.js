@@ -21,6 +21,159 @@ router.get('/case/:caseId/documents', auth, async (req, res) => {
   }
 });
 
+// Advanced search endpoint with Boolean operators and metadata filters
+router.get('/documents/search', auth, async (req, res) => {
+  const knex = req.knex;
+  try {
+    const {
+      q,
+      case_id,
+      file_type,
+      custodian,
+      date_from,
+      date_to,
+      tags,
+      min_size,
+      max_size
+    } = req.query;
+
+    // Start building query
+    let query = knex('documents').select('documents.*');
+
+    // Parse Boolean search query
+    if (q) {
+      const terms = parseBooleanQuery(q);
+      
+      // Build search conditions
+      if (terms.and && terms.and.length > 0) {
+        terms.and.forEach(term => {
+          query = query.where(function() {
+            this.where('name', 'ilike', `%${term}%`)
+                .orWhere('file_type', 'ilike', `%${term}%`)
+                .orWhere('category', 'ilike', `%${term}%`)
+                .orWhere('evidence_type', 'ilike', `%${term}%`)
+                .orWhere('legal_category', 'ilike', `%${term}%`);
+          });
+        });
+      }
+      
+      if (terms.or && terms.or.length > 0) {
+        query = query.where(function() {
+          terms.or.forEach((term, index) => {
+            const method = index === 0 ? 'where' : 'orWhere';
+            this[method](function() {
+              this.where('name', 'ilike', `%${term}%`)
+                  .orWhere('file_type', 'ilike', `%${term}%`)
+                  .orWhere('category', 'ilike', `%${term}%`)
+                  .orWhere('evidence_type', 'ilike', `%${term}%`)
+                  .orWhere('legal_category', 'ilike', `%${term}%`);
+            });
+          });
+        });
+      }
+      
+      if (terms.not && terms.not.length > 0) {
+        terms.not.forEach(term => {
+          query = query.whereNot(function() {
+            this.where('name', 'ilike', `%${term}%`)
+                .orWhere('file_type', 'ilike', `%${term}%`)
+                .orWhere('category', 'ilike', `%${term}%`)
+                .orWhere('evidence_type', 'ilike', `%${term}%`)
+                .orWhere('legal_category', 'ilike', `%${term}%`);
+          });
+        });
+      }
+    }
+
+    // Apply metadata filters
+    if (case_id) {
+      query = query.where('case_id', case_id);
+    }
+
+    if (file_type) {
+      query = query.where('file_type', 'ilike', `%${file_type}%`);
+    }
+
+    if (custodian) {
+      query = query.where('uploaded_by', 'ilike', `%${custodian}%`);
+    }
+
+    if (date_from) {
+      query = query.where('created_at', '>=', date_from);
+    }
+
+    if (date_to) {
+      query = query.where('created_at', '<=', date_to);
+    }
+
+    if (tags) {
+      const tagArray = tags.split(',').map(t => t.trim().toLowerCase());
+      tagArray.forEach(tag => {
+        query = query.whereRaw('LOWER(tags::text) LIKE ?', [`%${tag}%`]);
+      });
+    }
+
+    if (min_size) {
+      query = query.where('size', '>=', parseInt(min_size) * 1024 * 1024); // Convert MB to bytes
+    }
+
+    if (max_size) {
+      query = query.where('size', '<=', parseInt(max_size) * 1024 * 1024); // Convert MB to bytes
+    }
+
+    const documents = await query;
+
+    res.json({
+      documents,
+      total: documents.length,
+      query: req.query
+    });
+  } catch (e) {
+    logger.error('Advanced search error', { error: e.message, stack: e.stack, query: req.query, userId: req.user?.id });
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Helper function to parse Boolean search queries
+function parseBooleanQuery(query) {
+  const result = { and: [], or: [], not: [] };
+  
+  // Remove parentheses for simplicity (basic parser)
+  const cleaned = query.replace(/[()]/g, '');
+  
+  // Split by AND first
+  const andParts = cleaned.split(/\sAND\s/i);
+  
+  andParts.forEach(part => {
+    // Check for OR
+    if (/\sOR\s/i.test(part)) {
+      const orTerms = part.split(/\sOR\s/i);
+      orTerms.forEach(term => {
+        const trimmed = term.trim().replace(/^["']|["']$/g, '');
+        if (trimmed && !/^NOT\s/i.test(trimmed)) {
+          result.or.push(trimmed);
+        }
+      });
+    }
+    // Check for NOT
+    else if (/^NOT\s/i.test(part.trim())) {
+      const term = part.trim().replace(/^NOT\s/i, '').replace(/^["']|["']$/g, '');
+      if (term) {
+        result.not.push(term);
+      }
+    }
+    // Regular AND term
+    else {
+      const trimmed = part.trim().replace(/^["']|["']$/g, '');
+      if (trimmed) {
+        result.and.push(trimmed);
+      }
+    }
+  });
+  
+  return result;
+}
+
 // Get single document metadata
 router.get('/case/:caseId/documents/:docId', auth, async (req, res) => {
   const knex = req.knex;

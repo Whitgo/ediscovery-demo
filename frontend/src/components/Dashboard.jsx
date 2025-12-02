@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { apiGet, apiPost, apiPatch, apiDelete } from "../utils/api";
 import GlobalSearch from "./GlobalSearch";
+import AdvancedSearch from "./AdvancedSearch";
 import { canAccess } from "../utils/rbac";
 
 export default function Dashboard({ onOpenCase, user }) {
@@ -28,6 +29,7 @@ export default function Dashboard({ onOpenCase, user }) {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [currentUploadFile, setCurrentUploadFile] = useState('');
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [newCase, setNewCase] = useState({
@@ -395,7 +397,7 @@ export default function Dashboard({ onOpenCase, user }) {
 
         {/* Center Section - Global Search (Hidden on mobile) */}
         {!isMobile && (
-          <div style={{ flex: 1, maxWidth: '600px' }}>
+          <div style={{ flex: 1, maxWidth: '600px', display: 'flex', gap: '8px', alignItems: 'center' }}>
             <GlobalSearch
               cases={cases}
               documents={documents}
@@ -404,6 +406,29 @@ export default function Dashboard({ onOpenCase, user }) {
                 if (item.type === "Document") onOpenCase(item.case_id);
               }}
             />
+            <button
+              onClick={() => setShowAdvancedSearch(true)}
+              title="Advanced Search"
+              style={{
+                padding: '10px 16px',
+                background: '#805ad5',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontSize: '0.9em',
+                transition: 'background 0.2s',
+                whiteSpace: 'nowrap',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#6b46c1'}
+              onMouseLeave={(e) => e.currentTarget.style.background = '#805ad5'}
+            >
+              🔍+ Advanced
+            </button>
           </div>
         )}
 
@@ -1892,6 +1917,17 @@ export default function Dashboard({ onOpenCase, user }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Advanced Search Modal */}
+      {showAdvancedSearch && (
+        <AdvancedSearch
+          onResults={(results) => {
+            console.log('Search results:', results);
+            // You can handle results display here if needed
+          }}
+          onClose={() => setShowAdvancedSearch(false)}
+        />
       )}
         </div>
       </div>
