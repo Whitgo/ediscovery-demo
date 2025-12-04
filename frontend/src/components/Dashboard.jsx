@@ -268,70 +268,83 @@ export default function Dashboard({ onOpenCase, user }) {
 
     setUploading(true);
     setUploadProgress(0);
-    let successCount = 0;
-    let failCount = 0;
 
-    for (let i = 0; i < uploadFiles.length; i++) {
-      const file = uploadFiles[i];
-      setCurrentUploadFile(file.name);
+    try {
+      const formData = new FormData();
       
-      try {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('case_id', uploadConfig.caseId);
-        
-        // Auto-tagging
-        if (uploadConfig.autoTag) {
-          const fileType = getFileType(file.name);
-          const tags = [fileType];
-          if (uploadConfig.custodian) {
-            tags.push(`Custodian: ${uploadConfig.custodian}`);
+      // Add all files to FormData
+      uploadFiles.forEach(file => {
+        formData.append('files', file);
+      });
+      
+      // Add shared metadata
+      formData.append('case_id', uploadConfig.caseId);
+      formData.append('custodian', uploadConfig.custodian || '');
+      formData.append('auto_tag', uploadConfig.autoTag);
+      
+      // Add tags if auto-tagging is disabled
+      if (!uploadConfig.autoTag) {
+        formData.append('tags', JSON.stringify([]));
+      }
+
+      // Use XMLHttpRequest for progress tracking
+      const xhr = new XMLHttpRequest();
+      
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          const percentComplete = Math.round((e.loaded / e.total) * 100);
+          setUploadProgress(percentComplete);
+          setCurrentUploadFile(`Uploading ${uploadFiles.length} files...`);
+        }
+      });
+
+      const response = await new Promise((resolve, reject) => {
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve(JSON.parse(xhr.responseText));
+          } else {
+            reject(new Error(xhr.statusText));
           }
-          formData.append('tags', JSON.dumps(tags));
+        };
+        xhr.onerror = () => reject(new Error('Network error'));
+        
+        xhr.open('POST', `http://localhost:4443/api/case/${uploadConfig.caseId}/documents/bulk-upload`);
+        xhr.setRequestHeader('Authorization', `Bearer ${localStorage.getItem('token')}`);
+        xhr.send(formData);
+      });
+
+      setUploading(false);
+      setUploadProgress(0);
+      setCurrentUploadFile('');
+
+      if (response.success) {
+        alert(`✅ Bulk upload complete!\n\nSuccessfully uploaded: ${response.uploaded}\nFailed: ${response.failed}\n\nTotal files: ${uploadFiles.length}`);
+        
+        if (response.errors && response.errors.length > 0) {
+          console.error('Upload errors:', response.errors);
         }
-
-        const response = await fetch('http://localhost:4443/api/documents/upload', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
-          body: formData
-        });
-
-        if (response.ok) {
-          successCount++;
-        } else {
-          failCount++;
+        
+        // Reload documents
+        const allDocs = [];
+        for (const c of cases) {
+          try {
+            const caseDocs = await apiGet(`/documents/case/${c.id}/documents`);
+            allDocs.push(...caseDocs);
+          } catch {}
         }
-      } catch (error) {
-        console.error('Upload error:', error);
-        failCount++;
+        setDocuments(allDocs);
+        
+        // Reset upload state
+        setUploadFiles([]);
+        setUploadConfig({ caseId: '', custodian: '', autoTag: true });
+        setShowUploadModal(false);
       }
-      
-      // Update progress
-      setUploadProgress(Math.round(((i + 1) / uploadFiles.length) * 100));
-    }
-
-    setUploading(false);
-    setUploadProgress(0);
-    setCurrentUploadFile('');
-    alert(`Upload complete!\nSuccessful: ${successCount}\nFailed: ${failCount}`);
-    
-    if (successCount > 0) {
-      // Reload documents
-      const allDocs = [];
-      for (const c of cases) {
-        try {
-          const caseDocs = await apiGet(`/documents/case/${c.id}/documents`);
-          allDocs.push(...caseDocs);
-        } catch {}
-      }
-      setDocuments(allDocs);
-      
-      // Reset upload state
-      setUploadFiles([]);
-      setUploadConfig({ caseId: '', custodian: '', autoTag: true });
-      setShowUploadModal(false);
+    } catch (error) {
+      console.error('Bulk upload error:', error);
+      setUploading(false);
+      setUploadProgress(0);
+      setCurrentUploadFile('');
+      alert(`❌ Bulk upload failed: ${error.message}`);
     }
   };
 
@@ -1754,7 +1767,7 @@ export default function Dashboard({ onOpenCase, user }) {
                 />
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                 <input
                   type="checkbox"
                   id="autoTag"
@@ -1766,7 +1779,50 @@ export default function Dashboard({ onOpenCase, user }) {
                   Enable auto-tagging by case, custodian, and file type
                 </label>
               </div>
+
+              {uploadConfig.autoTag && (
+                <div style={{ 
+                  padding: '12px', 
+                  background: '#e6fffa', 
+                  borderRadius: '6px', 
+                  border: '1px solid #81e6d9',
+                  fontSize: '0.9em',
+                  color: '#234e52'
+                }}>
+                  <div style={{ fontWeight: '600', marginBottom: '6px' }}>✨ Auto-tagging enabled</div>
+                  <div>All files will be automatically tagged with:</div>
+                  <ul style={{ marginLeft: '20px', marginTop: '6px', marginBottom: 0 }}>
+                    <li>File type (PDF, Word, Excel, etc.)</li>
+                    {uploadConfig.custodian && <li>Custodian: {uploadConfig.custodian}</li>}
+                  </ul>
+                </div>
+              )}
             </div>
+
+            {/* Bulk Upload Info Banner */}
+            {uploadFiles.length > 1 && (
+              <div style={{
+                marginBottom: '16px',
+                padding: '12px 16px',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                borderRadius: '8px',
+                color: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                boxShadow: '0 4px 6px rgba(102, 126, 234, 0.3)'
+              }}>
+                <div style={{ fontSize: '24px' }}>🚀</div>
+                <div>
+                  <div style={{ fontWeight: '600', fontSize: '1.05em' }}>
+                    Bulk Upload Mode
+                  </div>
+                  <div style={{ fontSize: '0.9em', opacity: 0.95 }}>
+                    {uploadFiles.length} files will be uploaded simultaneously with shared metadata
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Drag & Drop Upload Area */}
             <div

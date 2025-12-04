@@ -10,6 +10,8 @@ const { getCachedThumbnail } = require('../utils/pdfThumbnail');
 const path = require('path');
 const fs = require('fs');
 const logger = require('../utils/logger');
+const multer = require('multer');
+const crypto = require('crypto');
 
 router.get('/case/:caseId/documents', auth, async (req, res) => {
   const knex = req.knex;
@@ -335,6 +337,204 @@ router.post('/case/:caseId/documents/upload', auth, upload.single('file'), encry
     }
     res.status(500).json({ error: e.message });
   }
+});
+
+// Bulk upload endpoint - handles multiple files with shared metadata
+router.post('/case/:caseId/documents/bulk-upload', auth, async (req, res) => {
+  const knex = req.knex;
+  
+  // Configure multer for multiple files
+  const bulkUpload = multer({
+    storage: multer.diskStorage({
+      destination: (req, file, cb) => {
+        const uploadsDir = path.join(__dirname, '../../uploads');
+        cb(null, uploadsDir);
+      },
+      filename: (req, file, cb) => {
+        const hash = crypto.randomBytes(32).toString('hex');
+        const ext = path.extname(file.originalname).toLowerCase();
+        cb(null, `${hash}${ext}`);
+      }
+    }),
+    limits: {
+      fileSize: 50 * 1024 * 1024, // 50MB per file
+      files: 100 // Max 100 files per request
+    }
+  }).array('files', 100);
+
+  bulkUpload(req, res, async (err) => {
+    if (err) {
+      logger.error('Bulk upload multer error', { error: err.message, userId: req.user?.id });
+      return res.status(400).json({ error: err.message });
+    }
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
+
+    try {
+      const {
+        category,
+        folder,
+        tags,
+        case_number,
+        witness_name,
+        evidence_type,
+        legal_category,
+        custom_metadata,
+        custodian,
+        auto_tag
+      } = req.body;
+
+      const parsedTags = tags ? (typeof tags === 'string' ? JSON.parse(tags) : tags) : [];
+      const results = [];
+      const errors = [];
+
+      // Process each file
+      for (const file of req.files) {
+        try {
+          // Generate file-specific tags
+          let fileTags = [...parsedTags];
+          
+          if (auto_tag === 'true') {
+            // Auto-tag by file type
+            const ext = path.extname(file.originalname).toLowerCase().replace('.', '');
+            const typeMap = {
+              pdf: 'PDF Document',
+              doc: 'Word Document',
+              docx: 'Word Document',
+              xls: 'Excel Spreadsheet',
+              xlsx: 'Excel Spreadsheet',
+              ppt: 'PowerPoint',
+              pptx: 'PowerPoint',
+              txt: 'Text File',
+              jpg: 'Image',
+              jpeg: 'Image',
+              png: 'Image',
+              msg: 'Email Message',
+              eml: 'Email Message',
+              mp4: 'Video',
+              mov: 'Video'
+            };
+            const fileType = typeMap[ext] || 'Unknown';
+            fileTags.push(fileType);
+
+            // Add custodian tag if provided
+            if (custodian) {
+              fileTags.push(`Custodian: ${custodian}`);
+            }
+          }
+
+          // Deduplicate tags
+          const uniqueTags = [...new Set(
+            fileTags.map(tag => tag.trim().toLowerCase()).filter(tag => tag.length > 0)
+          )];
+
+          // Prepare document data
+          const documentData = {
+            case_id: req.params.caseId,
+            name: file.originalname,
+            size: file.size,
+            file_type: file.mimetype,
+            stored_filename: file.filename,
+            category: category || 'general',
+            folder: folder || '',
+            case_number: case_number || null,
+            witness_name: witness_name || null,
+            evidence_type: evidence_type || null,
+            legal_category: legal_category || null,
+            custom_metadata: custom_metadata ? JSON.stringify(custom_metadata) : '{}',
+            uploaded_by: req.user.name,
+            tags: JSON.stringify(uniqueTags),
+            created_at: knex.fn.now(),
+            updated_at: knex.fn.now()
+          };
+
+          const [id] = await knex('documents').insert(documentData).returning('id');
+
+          // Log to audit trail
+          await audit({
+            action: 'bulk_upload',
+            user: req.user.name,
+            objectType: 'document',
+            objectId: id,
+            caseId: req.params.caseId,
+            details: {
+              name: file.originalname,
+              category: category || 'general',
+              folder: folder || '',
+              size: file.size,
+              type: file.mimetype,
+              tags: uniqueTags
+            }
+          });
+
+          results.push({
+            id,
+            name: file.originalname,
+            size: file.size,
+            file_type: file.mimetype,
+            tags: uniqueTags,
+            success: true
+          });
+
+        } catch (fileError) {
+          logger.error('Individual file upload error', { 
+            error: fileError.message, 
+            file: file.originalname,
+            userId: req.user?.id 
+          });
+          
+          // Clean up file on error
+          if (file.path && fs.existsSync(file.path)) {
+            fs.unlinkSync(file.path);
+          }
+
+          errors.push({
+            name: file.originalname,
+            error: fileError.message
+          });
+        }
+      }
+
+      // Send single notification for bulk upload
+      if (results.length > 0) {
+        const caseInfo = await knex('cases').where({ id: req.params.caseId }).first();
+        await notifyUsersInCase(knex, req.params.caseId, {
+          type: 'bulk_upload',
+          title: 'Bulk Document Upload',
+          message: `${req.user.name} uploaded ${results.length} documents to case ${caseInfo?.name || req.params.caseId}`,
+          metadata: {
+            uploadedBy: req.user.name,
+            caseName: caseInfo?.name,
+            fileCount: results.length
+          }
+        });
+      }
+
+      res.status(201).json({
+        success: true,
+        uploaded: results.length,
+        failed: errors.length,
+        results,
+        errors
+      });
+
+    } catch (e) {
+      logger.error('Bulk upload error', { error: e.message, stack: e.stack, userId: req.user?.id });
+      
+      // Clean up all uploaded files on complete failure
+      if (req.files) {
+        req.files.forEach(file => {
+          if (file.path && fs.existsSync(file.path)) {
+            fs.unlinkSync(file.path);
+          }
+        });
+      }
+      
+      res.status(500).json({ error: e.message });
+    }
+  });
 });
 
 // Legacy endpoint for backward compatibility
