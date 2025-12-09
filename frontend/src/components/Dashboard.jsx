@@ -637,50 +637,86 @@ export default function Dashboard({ onOpenCase, user }) {
 
         {/* Navigation Menu */}
         <div style={{ flex: 1, padding: '10px 0' }}>
-          {/* Dashboard Button */}
-          <button
-            onClick={() => {
-              setActiveView('dashboard');
-              if (isMobile) setShowMobileMenu(false);
-            }}
-            style={{
-              width: '100%',
-              padding: '16px 20px',
-              background: activeView === 'dashboard' ? '#2166e8' : 'transparent',
-              border: 'none',
-              borderLeft: activeView === 'dashboard' ? '4px solid #fff' : '4px solid transparent',
-              color: '#fff',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: (sidebarCollapsed && !isMobile) ? 'center' : 'flex-start',
-              gap: '12px',
-              transition: 'all 0.2s',
-              fontSize: '1em'
-            }}
-            onMouseEnter={(e) => {
-              if (activeView !== 'dashboard') e.currentTarget.style.background = '#4a5568';
-            }}
-            onMouseLeave={(e) => {
-              if (activeView !== 'dashboard') e.currentTarget.style.background = 'transparent';
-            }}
-          >
-            <span style={{ fontSize: '1.3em' }}>📊</span>
-            {(!sidebarCollapsed || isMobile) && <span>Dashboard</span>}
-          </button>
+          {/* Upload Button */}
+          {user && canAccess(user.role, 'create', 'document') && (
+            <button
+              onClick={() => {
+                setShowUploadModal(true);
+                if (isMobile) setShowMobileMenu(false);
+              }}
+              style={{
+                width: '100%',
+                padding: '16px 20px',
+                background: showUploadModal ? '#2166e8' : 'transparent',
+                border: 'none',
+                borderLeft: showUploadModal ? '4px solid #fff' : '4px solid transparent',
+                color: '#fff',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: (sidebarCollapsed && !isMobile) ? 'center' : 'flex-start',
+                gap: '12px',
+                transition: 'all 0.2s',
+                fontSize: '1em'
+              }}
+              onMouseEnter={(e) => {
+                if (!showUploadModal) e.currentTarget.style.background = '#4a5568';
+              }}
+              onMouseLeave={(e) => {
+                if (!showUploadModal) e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              <span style={{ fontSize: '1.3em' }}>📤</span>
+              {(!sidebarCollapsed || isMobile) && <span>Upload</span>}
+            </button>
+          )}
+
+          {/* Tag Button */}
+          {user && canAccess(user.role, 'update', 'document') && (
+            <button
+              onClick={() => {
+                setActiveView('tag');
+                if (isMobile) setShowMobileMenu(false);
+              }}
+              style={{
+                width: '100%',
+                padding: '16px 20px',
+                background: activeView === 'tag' ? '#2166e8' : 'transparent',
+                border: 'none',
+                borderLeft: activeView === 'tag' ? '4px solid #fff' : '4px solid transparent',
+                color: '#fff',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: (sidebarCollapsed && !isMobile) ? 'center' : 'flex-start',
+                gap: '12px',
+                transition: 'all 0.2s',
+                fontSize: '1em'
+              }}
+              onMouseEnter={(e) => {
+                if (activeView !== 'tag') e.currentTarget.style.background = '#4a5568';
+              }}
+              onMouseLeave={(e) => {
+                if (activeView !== 'tag') e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              <span style={{ fontSize: '1.3em' }}>🏷️</span>
+              {(!sidebarCollapsed || isMobile) && <span>Tag</span>}
+            </button>
+          )}
 
           {/* Search Button */}
           <button
             onClick={() => {
-              setShowSearch(!showSearch);
+              setActiveView('search');
               if (isMobile) setShowMobileMenu(false);
             }}
             style={{
               width: '100%',
               padding: '16px 20px',
-              background: showSearch ? '#2166e8' : 'transparent',
+              background: activeView === 'search' ? '#2166e8' : 'transparent',
               border: 'none',
-              borderLeft: showSearch ? '4px solid #fff' : '4px solid transparent',
+              borderLeft: activeView === 'search' ? '4px solid #fff' : '4px solid transparent',
               color: '#fff',
               cursor: 'pointer',
               display: 'flex',
@@ -691,47 +727,49 @@ export default function Dashboard({ onOpenCase, user }) {
               fontSize: '1em'
             }}
             onMouseEnter={(e) => {
-              if (!showSearch) e.currentTarget.style.background = '#4a5568';
+              if (activeView !== 'search') e.currentTarget.style.background = '#4a5568';
             }}
             onMouseLeave={(e) => {
-              if (!showSearch) e.currentTarget.style.background = 'transparent';
+              if (activeView !== 'search') e.currentTarget.style.background = 'transparent';
             }}
           >
             <span style={{ fontSize: '1.3em' }}>🔍</span>
             {(!sidebarCollapsed || isMobile) && <span>Search</span>}
           </button>
 
-          {/* Cases Button */}
-          <button
-            onClick={() => {
-              setActiveView('cases');
-              if (isMobile) setShowMobileMenu(false);
-            }}
-            style={{
-              width: '100%',
-              padding: '16px 20px',
-              background: activeView === 'cases' ? '#2166e8' : 'transparent',
-              border: 'none',
-              borderLeft: activeView === 'cases' ? '4px solid #fff' : '4px solid transparent',
-              color: '#fff',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: (sidebarCollapsed && !isMobile) ? 'center' : 'flex-start',
-              gap: '12px',
-              transition: 'all 0.2s',
-              fontSize: '1em'
-            }}
-            onMouseEnter={(e) => {
-              if (activeView !== 'cases') e.currentTarget.style.background = '#4a5568';
-            }}
-            onMouseLeave={(e) => {
-              if (activeView !== 'cases') e.currentTarget.style.background = 'transparent';
-            }}
-          >
-            <span style={{ fontSize: '1.3em' }}>📁</span>
-            {(!sidebarCollapsed || isMobile) && <span>Cases</span>}
-          </button>
+          {/* Export Button */}
+          {user && canAccess(user.role, 'read', 'document') && (
+            <button
+              onClick={() => {
+                setActiveView('export');
+                if (isMobile) setShowMobileMenu(false);
+              }}
+              style={{
+                width: '100%',
+                padding: '16px 20px',
+                background: activeView === 'export' ? '#2166e8' : 'transparent',
+                border: 'none',
+                borderLeft: activeView === 'export' ? '4px solid #fff' : '4px solid transparent',
+                color: '#fff',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: (sidebarCollapsed && !isMobile) ? 'center' : 'flex-start',
+                gap: '12px',
+                transition: 'all 0.2s',
+                fontSize: '1em'
+              }}
+              onMouseEnter={(e) => {
+                if (activeView !== 'export') e.currentTarget.style.background = '#4a5568';
+              }}
+              onMouseLeave={(e) => {
+                if (activeView !== 'export') e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              <span style={{ fontSize: '1.3em' }}>📥</span>
+              {(!sidebarCollapsed || isMobile) && <span>Export</span>}
+            </button>
+          )}
         </div>
 
         {/* User Info at Bottom */}
@@ -756,13 +794,11 @@ export default function Dashboard({ onOpenCase, user }) {
         padding: isMobile ? '16px' : '32px',
         background: '#f7fafc'
       }}>
-        {/* Dashboard Content */}
+        {/* Content based on active view */}
         <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
 
-          {/* Three Horizontal Sections Layout */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            
-            {/* 1. Case Overview Panel */}
+          {/* Search View */}
+          {activeView === 'search' && (
             <div style={{
               background: '#fff',
               border: '1px solid #e2e8f0',
@@ -770,96 +806,122 @@ export default function Dashboard({ onOpenCase, user }) {
               padding: '24px',
               boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
             }}>
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center',
-                marginBottom: '20px'
-              }}>
-                <h3 style={{ margin: 0, color: '#2d3748', fontSize: '1.25em' }}>
-                  📁 Case Overview
-                </h3>
-                {selectedCase && (
-                  <div style={{
-                    background: '#f56565',
-                    color: '#fff',
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 'bold',
-                    fontSize: '0.9em'
-                  }}>
-                    5
-                  </div>
-                )}
-              </div>
-              
-              {selectedCase ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-                  <div>
-                    <div style={{ fontSize: '0.85em', color: '#718096', marginBottom: '4px', fontWeight: '600' }}>
-                      CASE NAME
-                    </div>
-                    <div style={{ fontSize: '1.1em', color: '#2d3748', fontWeight: '600' }}>
-                      {selectedCase.name}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.85em', color: '#718096', marginBottom: '4px', fontWeight: '600' }}>
-                      CASE #
-                    </div>
-                    <div style={{ fontSize: '1.1em', color: '#2d3748', fontWeight: '600' }}>
-                      {selectedCase.number}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.85em', color: '#718096', marginBottom: '4px', fontWeight: '600' }}>
-                      ASSIGNED ATTORNEY
-                    </div>
-                    <div style={{ fontSize: '1.1em', color: '#2d3748', fontWeight: '600' }}>
-                      {selectedCase.assigned_to || 'Unassigned'}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.85em', color: '#718096', marginBottom: '4px', fontWeight: '600' }}>
-                      CASE STATUS
-                    </div>
-                    <div style={{ 
-                      fontSize: '1.1em', 
-                      fontWeight: '600',
-                      color: getStatusColor(selectedCase.status),
-                      textTransform: 'capitalize'
-                    }}>
-                      {selectedCase.status}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ color: '#718096', textAlign: 'center', padding: '20px' }}>
-                  Select a case from the list below to view details
-                </div>
-              )}
+              <h2 style={{ margin: '0 0 20px 0', color: '#2d3748', fontSize: '1.5em' }}>
+                🔍 Search Documents
+              </h2>
+              <p style={{ color: '#718096', marginBottom: '20px' }}>
+                Search through all documents across all cases
+              </p>
+              <GlobalSearch 
+                documents={documents} 
+                onSelect={(doc) => console.log('Selected:', doc)} 
+              />
             </div>
+          )}
 
-            {/* Bottom Section: Two Columns */}
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 400px', gap: '24px' }}>
-              
-              {/* 2. Search & Document List */}
-              <div style={{
-                background: '#fff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '24px',
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-                maxHeight: '500px',
-                overflowY: 'auto'
-              }}>
-                <h3 style={{ margin: '0 0 20px 0', color: '#2d3748', fontSize: '1.25em' }}>
-                  🔍 Search & Document List
-                </h3>
+          {/* Tag View */}
+          {activeView === 'tag' && (
+            <div style={{
+              background: '#fff',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              padding: '24px',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+            }}>
+              <h2 style={{ margin: '0 0 20px 0', color: '#2d3748', fontSize: '1.5em' }}>
+                🏷️ Tag Documents
+              </h2>
+              <p style={{ color: '#718096', marginBottom: '20px' }}>
+                Organize and categorize your documents with tags
+              </p>
+              <div style={{ padding: '40px', textAlign: 'center', color: '#718096' }}>
+                <div style={{ fontSize: '4em', marginBottom: '16px' }}>🏷️</div>
+                <h3 style={{ color: '#2d3748', marginBottom: '12px' }}>Document Tagging</h3>
+                <p>Select documents from the search results or upload them first to add tags.</p>
+                <p style={{ marginTop: '16px', fontSize: '0.9em' }}>
+                  Tags help you organize documents by case, custodian, file type, and custom categories.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Export View */}
+          {activeView === 'export' && (
+            <div style={{
+              background: '#fff',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              padding: '24px',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+            }}>
+              <h2 style={{ margin: '0 0 20px 0', color: '#2d3748', fontSize: '1.5em' }}>
+                📥 Export Documents
+              </h2>
+              <p style={{ color: '#718096', marginBottom: '20px' }}>
+                Export documents in various formats (PDF, CSV, ZIP)
+              </p>
+              <div style={{ padding: '40px', textAlign: 'center', color: '#718096' }}>
+                <div style={{ fontSize: '4em', marginBottom: '16px' }}>📥</div>
+                <h3 style={{ color: '#2d3748', marginBottom: '12px' }}>Export Options</h3>
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                  gap: '16px', 
+                  maxWidth: '800px', 
+                  margin: '24px auto' 
+                }}>
+                  <div style={{ 
+                    padding: '24px', 
+                    border: '1px solid #e2e8f0', 
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                  onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                  >
+                    <div style={{ fontSize: '2em', marginBottom: '8px' }}>📄</div>
+                    <div style={{ fontWeight: '600', color: '#2d3748' }}>Export as PDF</div>
+                    <div style={{ fontSize: '0.85em', marginTop: '8px' }}>Export documents to PDF format</div>
+                  </div>
+                  <div style={{ 
+                    padding: '24px', 
+                    border: '1px solid #e2e8f0', 
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                  onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                  >
+                    <div style={{ fontSize: '2em', marginBottom: '8px' }}>📊</div>
+                    <div style={{ fontWeight: '600', color: '#2d3748' }}>Export as CSV</div>
+                    <div style={{ fontSize: '0.85em', marginTop: '8px' }}>Export metadata to spreadsheet</div>
+                  </div>
+                  <div style={{ 
+                    padding: '24px', 
+                    border: '1px solid #e2e8f0', 
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                  onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                  >
+                    <div style={{ fontSize: '2em', marginBottom: '8px' }}>🗜️</div>
+                    <div style={{ fontWeight: '600', color: '#2d3748' }}>Export as ZIP</div>
+                    <div style={{ fontSize: '0.85em', marginTop: '8px' }}>Download all files in archive</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Default view - removed dashboard sections */}
+        </div>
+      </div>
+
+      {/* Upload & Ingest Modal */}
                 
                 {/* Document entries simulation */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
