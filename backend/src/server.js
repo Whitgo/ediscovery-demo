@@ -35,6 +35,10 @@ const { startBackupScheduler } = require('./jobs/backupScheduler');
 
 const app = express();
 
+// Enable trust proxy for applications behind reverse proxies
+// This is required for rate limiting to work correctly with X-Forwarded-For headers
+app.set('trust proxy', 1);
+
 // Disable X-Powered-By header to prevent server fingerprinting
 app.disable('x-powered-by');
 
