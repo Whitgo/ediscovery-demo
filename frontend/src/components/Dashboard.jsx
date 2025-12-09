@@ -290,6 +290,9 @@ export default function Dashboard({ onOpenCase, user }) {
       // Use XMLHttpRequest for progress tracking
       const xhr = new XMLHttpRequest();
       
+      // Set timeout to 5 minutes
+      xhr.timeout = 300000;
+      
       xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable) {
           const percentComplete = Math.round((e.loaded / e.total) * 100);
@@ -307,6 +310,7 @@ export default function Dashboard({ onOpenCase, user }) {
           }
         };
         xhr.onerror = () => reject(new Error('Network error'));
+        xhr.ontimeout = () => reject(new Error('Upload timeout - please try with fewer files'));
         
         xhr.open('POST', `http://localhost:4443/api/case/${uploadConfig.caseId}/documents/bulk-upload`);
         xhr.setRequestHeader('Authorization', `Bearer ${localStorage.getItem('token')}`);
@@ -326,13 +330,21 @@ export default function Dashboard({ onOpenCase, user }) {
         
         // Reload documents
         const allDocs = [];
+        const failedCases = [];
         for (const c of cases) {
           try {
             const caseDocs = await apiGet(`/documents/case/${c.id}/documents`);
             allDocs.push(...caseDocs);
-          } catch {}
+          } catch (error) {
+            console.error(`Failed to load documents for case ${c.id}:`, error);
+            failedCases.push(c.name);
+          }
         }
         setDocuments(allDocs);
+        
+        if (failedCases.length > 0) {
+          console.warn(`Could not load documents from: ${failedCases.join(', ')}`);
+        }
         
         // Reset upload state
         setUploadFiles([]);

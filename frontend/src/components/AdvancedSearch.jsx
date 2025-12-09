@@ -21,17 +21,27 @@ export default function AdvancedSearch({ onResults, onClose }) {
   const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+    
+    const loadCases = async () => {
+      try {
+        const data = await apiGet("/cases");
+        if (!cancelled) {
+          setCases(data);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Failed to load cases:", error);
+        }
+      }
+    };
+    
     loadCases();
+    
+    return () => {
+      cancelled = true;
+    };
   }, []);
-
-  const loadCases = async () => {
-    try {
-      const data = await apiGet("/cases");
-      setCases(data);
-    } catch (error) {
-      console.error("Failed to load cases:", error);
-    }
-  };
 
   const parseBoolean = (query) => {
     // Parse Boolean operators: AND, OR, NOT, parentheses
@@ -112,8 +122,10 @@ export default function AdvancedSearch({ onResults, onClose }) {
       
       if (proximityTerms.length > 0) {
         filteredResults = filteredResults.filter(doc => {
+          // Pre-compute lowercase text once per document
+          const text = `${doc.filename || ''} ${doc.content || ''}`.toLowerCase();
+          
           return proximityTerms.some(prox => {
-            const text = (doc.filename + ' ' + (doc.content || '')).toLowerCase();
             const term1Lower = prox.term1.toLowerCase();
             const term2Lower = prox.term2.toLowerCase();
             

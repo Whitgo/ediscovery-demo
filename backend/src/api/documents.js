@@ -111,16 +111,24 @@ router.get('/documents/search', auth, async (req, res) => {
     if (tags) {
       const tagArray = tags.split(',').map(t => t.trim().toLowerCase());
       tagArray.forEach(tag => {
-        query = query.whereRaw('LOWER(tags::text) LIKE ?', [`%${tag}%`]);
+        // Escape SQL wildcard characters to prevent injection
+        const escapedTag = tag.replace(/[%_\\]/g, '\\$&');
+        query = query.whereRaw('LOWER(tags::text) LIKE ?', [`%${escapedTag}%`]);
       });
     }
 
     if (min_size) {
-      query = query.where('size', '>=', parseInt(min_size) * 1024 * 1024); // Convert MB to bytes
+      const minSizeBytes = parseInt(min_size, 10);
+      if (!isNaN(minSizeBytes) && minSizeBytes > 0) {
+        query = query.where('size', '>=', minSizeBytes * 1024 * 1024); // Convert MB to bytes
+      }
     }
 
     if (max_size) {
-      query = query.where('size', '<=', parseInt(max_size) * 1024 * 1024); // Convert MB to bytes
+      const maxSizeBytes = parseInt(max_size, 10);
+      if (!isNaN(maxSizeBytes) && maxSizeBytes > 0) {
+        query = query.where('size', '<=', maxSizeBytes * 1024 * 1024); // Convert MB to bytes
+      }
     }
 
     const documents = await query;
@@ -343,6 +351,10 @@ router.post('/case/:caseId/documents/upload', auth, upload.single('file'), encry
 router.post('/case/:caseId/documents/bulk-upload', auth, async (req, res) => {
   const knex = req.knex;
   
+  // Configuration constants
+  const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB per file
+  const MAX_BULK_FILES = 100; // Maximum files per bulk upload
+  
   // Configure multer for multiple files
   const bulkUpload = multer({
     storage: multer.diskStorage({
@@ -357,10 +369,10 @@ router.post('/case/:caseId/documents/bulk-upload', auth, async (req, res) => {
       }
     }),
     limits: {
-      fileSize: 50 * 1024 * 1024, // 50MB per file
-      files: 100 // Max 100 files per request
+      fileSize: MAX_FILE_SIZE,
+      files: MAX_BULK_FILES
     }
-  }).array('files', 100);
+  }).array('files', MAX_BULK_FILES);
 
   bulkUpload(req, res, async (err) => {
     if (err) {
@@ -386,7 +398,14 @@ router.post('/case/:caseId/documents/bulk-upload', auth, async (req, res) => {
         auto_tag
       } = req.body;
 
-      const parsedTags = tags ? (typeof tags === 'string' ? JSON.parse(tags) : tags) : [];
+      let parsedTags = [];
+      try {
+        parsedTags = tags ? (typeof tags === 'string' ? JSON.parse(tags) : tags) : [];
+      } catch (parseError) {
+        logger.error('Failed to parse tags in bulk upload', { error: parseError.message, tags });
+        return res.status(400).json({ error: 'Invalid tags format - must be valid JSON array' });
+      }
+      
       const results = [];
       const errors = [];
 
